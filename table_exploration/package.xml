@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>table_exploration</name>
+  <version>0.0.0</version>
+  <description>The table_exploration package</description>
+
+
+  <maintainer email="aioikono@pme.duth.gr">Katerina Oikonomou</maintainer>
+
+
+  <license>TODO</license>
+
+  <build_depend>gazebo</build_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <build_export_depend>gazebo</build_export_depend>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>
