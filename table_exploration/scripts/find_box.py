@@ -12,8 +12,6 @@ from std_msgs.msg import Float64
 from sensor_msgs.msg import Image
 from scipy.spatial import distance as dist
 
-pose_publisher = None
-
 
 class CascadeDoxDetector(object):
 
@@ -74,9 +72,9 @@ class CascadeDoxDetector(object):
 
                 msg_a1.data = 0 * math.pi/180
                 msg_a2.data = -95 * math.pi/180
-                msg_a3.data = 70 * math.pi/180
+                msg_a3.data = 50 * math.pi/180
                 msg_a4.data = 0 * math.pi/180
-                msg_a5.data = 120 * math.pi/180
+                msg_a5.data = 100 * math.pi/180
                 msg_a6.data = 0 * math.pi/180
 
                 self.box_pub.publish(rec_image)
