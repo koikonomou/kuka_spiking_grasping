@@ -6,7 +6,24 @@ find_package(catkin REQUIRED
 	 kuka_gazebo
 	 kuka_description
 	 kuka_kr4_moveit
-	 kuka_kr4_support)
+	 kuka_kr4_support
+	 message_generation
+	 roscpp
+	 sensor_msgs
+	 std_msgs
+	 )
+
+find_package(cmake_modules REQUIRED)
+
+
+add_message_files(FILES 
+	Distance.msg)
+
+generate_messages(
+  DEPENDENCIES
+  sensor_msgs
+  std_msgs
+)
 
 catkin_package(
 #  INCLUDE_DIRS include
