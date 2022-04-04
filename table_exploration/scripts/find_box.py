@@ -22,12 +22,6 @@ class CascadeDoxDetector(object):
         self.detector_topic = rospy.get_param("detector_topic", "/table/box/detection")
         self.cascade = cv2.CascadeClassifier('/home/katerina/catkin_ws/src/kuka_spiking_grasping/table_exploration/cascade/cascade.xml')
         self.image_sub = rospy.Subscriber(self.image_topic, Image, self.on_image, queue_size = 1)
-        self.pub_a1 = rospy.Publisher('/kuka_kr4r600/joint_a1_position_controller/command', Float64, queue_size=10)
-        self.pub_a2 = rospy.Publisher('/kuka_kr4r600/joint_a2_position_controller/command', Float64, queue_size=10)
-        self.pub_a3 = rospy.Publisher('/kuka_kr4r600/joint_a3_position_controller/command', Float64, queue_size=10)
-        self.pub_a4 = rospy.Publisher('/kuka_kr4r600/joint_a4_position_controller/command', Float64, queue_size=10)
-        self.pub_a5 = rospy.Publisher('/kuka_kr4r600/joint_a5_position_controller/command', Float64, queue_size=10)
-        self.pub_a6 = rospy.Publisher('/kuka_kr4r600/joint_a6_position_controller/command', Float64, queue_size=10)
         self.box_pub = rospy.Publisher('/table/detected_box', Image, queue_size=1)
         self.rec_image = Image()
 
@@ -59,31 +53,8 @@ class CascadeDoxDetector(object):
 
                 rec_image = self.draw_rectangles( self.image , self.detections)
 
-                msg_a1 = Float64()
-                msg_a2 = Float64()
-                msg_a3 = Float64()
-                msg_a4 = Float64()
-                msg_a5 = Float64()
-                msg_a6 = Float64()
-
-
-###### Robot arm full position (a1= 0, a2=-90, a3= 0, a4= 0, a5= 0 , a6= 0) ######
-###### Robot joint limits in rads (a1= , a2= , a3= , a4= ,a5= 2.09, a6=  ) ######
-
-                msg_a1.data = 0 * math.pi/180
-                msg_a2.data = -95 * math.pi/180
-                msg_a3.data = 50 * math.pi/180
-                msg_a4.data = 0 * math.pi/180
-                msg_a5.data = 100 * math.pi/180
-                msg_a6.data = 0 * math.pi/180
-
                 self.box_pub.publish(rec_image)
-                self.pub_a1.publish(msg_a1)
-                self.pub_a2.publish(msg_a2)
-                self.pub_a3.publish(msg_a3)
-                self.pub_a4.publish(msg_a4)
-                self.pub_a5.publish(msg_a5)
-                self.pub_a6.publish(msg_a6)
+
 
             except ValueError:
                 rospy.logwarn_throttle(2, "object detection error")
