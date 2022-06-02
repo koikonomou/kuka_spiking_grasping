@@ -3,8 +3,8 @@ project(table_exploration)
 
 
 find_package(catkin REQUIRED
-	 kuka_gazebo
-	 kuka_description
+	 # kuka_gazebo
+	 # kuka_description
 	 kuka_kr4_moveit
 	 kuka_kr4_support
 	 message_generation
@@ -28,7 +28,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES table_exploration
-#  CATKIN_DEPENDS 
+	CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 
