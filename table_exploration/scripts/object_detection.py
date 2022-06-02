@@ -49,12 +49,18 @@ class CascadeBoxDetector(object):
         return self.crop_img
 
     def mask(self,image):
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-        min_red = np.array([0, 0, 50])
-        max_red = np.array([50, 50, 255])
+        min_red = np.array([0, 100, 80])
+        max_red = np.array([10, 256, 256])
 
         mask = cv2.inRange(hsv, min_red, max_red) 
+        count = np.sum(np.nonzero(mask))
+        print(f"count = {count}")
+        if count == 0:
+            print("Not Red")
+        else:
+            print("Red")
         output = cv2.bitwise_and(image, image, mask=mask)
         cnts,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         return cnts
