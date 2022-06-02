@@ -56,14 +56,16 @@ class CascadeBoxDetector(object):
 
         mask = cv2.inRange(hsv, min_red, max_red) 
         count = np.sum(np.nonzero(mask))
-        print(f"count = {count}")
         if count == 0:
-            print("Not Red")
+            no_red = 0
+            rd = no_red
         else:
-            print("Red")
+            red_detected = 1
+            rd = red_detected
+
         output = cv2.bitwise_and(image, image, mask=mask)
         cnts,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        return cnts
+        return cnts,rd
 
     def focal_length(self, measured_distance, real_width, width_in_rf_image):
         focal_len = (width_in_rf_image * measured_distance) / real_width
@@ -85,12 +87,10 @@ class CascadeBoxDetector(object):
 
     def spin(self):
         rate = rospy.Rate(self.rate)
-
-        ref_image = cv2.imread("red_gazebo.png")
-        ref_image_width = self.mask(ref_image)
-        self.object_width = self.width_in_rfimg(ref_image_width)
-
-        focal_length = self.focal_length(self.known_distance,self.real_width, self.object_width)
+        # ref_image = cv2.imread("red_gazebo.png")
+        # ref_image_width = self.mask(ref_image)[0]
+        self.object_width_in_rfframe = 448
+        focal_length = self.focal_length(self.known_distance,self.real_width, self.object_width_in_rfframe)
         while not rospy.is_shutdown():
             rate.sleep()
 
@@ -105,27 +105,38 @@ class CascadeBoxDetector(object):
                     msg = Distance()
                     msg.data = -10
                     msg.stamp = self.stamp
+                    msg.havered = 0
                     self.dist_pub.publish(msg)
                 else:
                     crop_img = self.crop_image( image, detections)
                     self.rec_image = self.draw_rectangles( image , detections)
                     # cv2.imshow('Image', crop_img)
                     # cv2.waitKey(0) 
-                    marker = self.mask(crop_img)
+                    marker = self.mask(crop_img)[0]
+                    # print(marker)
+                    havered = self.mask(crop_img)[1]
+                    if havered==0:
+                        rospy.logwarn_throttle(2, "Nothing red on frame")
+                        msg = Distance()
+                        msg.data = -10
+                        msg.stamp = self.stamp
+                        msg.havered = 0
+                        self.dist_pub.publish(msg)
+                    else:
+                        draw_im = cv2.drawContours(crop_img, marker, -1, self.box_color, 2)
+                        red_obj = cv_bridge.cv2_to_imgmsg(draw_im)
 
-                    draw_im = cv2.drawContours(crop_img, marker, -1, self.box_color, 2)
-                    red_obj = cv_bridge.cv2_to_imgmsg(draw_im)
+                        self.box_pub.publish(red_obj)
+                        object_width = self.width_in_rfimg(marker)
+                        distance_est = self.distance(focal_length, self.real_width, object_width)
 
-                    self.box_pub.publish(red_obj)
-                    object_width = self.width_in_rfimg(marker)
-                    distance_est = self.distance(focal_length, self.real_width, object_width)
-                    # print (distance_est)
+                        msg = Distance()
+                        msg.data = distance_est
+                        msg.stamp = self.stamp
+                        msg.havered = 1
 
-                    msg = Distance()
-                    msg.data = distance_est
-                    msg.stamp = self.stamp
-                    self.dist_pub.publish(msg)
-                    self.cascade_pub.publish(self.rec_image[1])
+                        self.dist_pub.publish(msg)
+                        self.cascade_pub.publish(self.rec_image[1])
 
 
             except ValueError:
