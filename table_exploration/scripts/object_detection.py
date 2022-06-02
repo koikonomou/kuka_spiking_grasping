@@ -24,7 +24,7 @@ class CascadeBoxDetector(object):
         self.cascade_pub = rospy.Publisher('/kuka/cascade/detection', Image, queue_size=1)
         self.box_color = (0,255,0)
         self.real_width = 0.10
-        self.known_distance = 7.88
+        self.known_distance = 1.6
         self.rec_image = Image()
         self.image_rect = [0,self.rec_image]
         self.crop_img = Image()
@@ -113,6 +113,7 @@ class CascadeBoxDetector(object):
                     self.box_pub.publish(red_obj)
                     object_width = self.width_in_rfimg(marker)
                     distance_est = self.distance(focal_length, self.real_width, object_width)
+                    # print (distance_est)
 
                     msg = Distance()
                     msg.data = distance_est
