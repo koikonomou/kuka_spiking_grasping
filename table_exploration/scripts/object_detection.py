@@ -28,6 +28,9 @@ class CascadeBoxDetector(object):
         self.rec_image = Image()
         self.image_rect = [0,self.rec_image]
         self.crop_img = Image()
+        self.object_width = 0
+        self.detections = np.array([])
+
 
     def on_image(self,msg):
         self.last_msg = msg
@@ -51,14 +54,9 @@ class CascadeBoxDetector(object):
         min_red = np.array([0, 0, 50])
         max_red = np.array([50, 50, 255])
 
-
         mask = cv2.inRange(hsv, min_red, max_red) 
         output = cv2.bitwise_and(image, image, mask=mask)
         cnts,_ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        if cv2.countNonZero(mask) > 0:
-            print('Red is present!')
-        else:
-            print('Red is not present!')
         return cnts
 
     def focal_length(self, measured_distance, real_width, width_in_rf_image):
@@ -72,19 +70,21 @@ class CascadeBoxDetector(object):
     def width_in_rfimg(self, marker):
         for c in marker:
             x,y,w,h = cv2.boundingRect(c)
-            object_width = w
-        return object_width
+            self.object_width = w
+        return self.object_width
+
+    def find_detections(self, image):
+        self.detections = self.cascade.detectMultiScale(image, 1.2, 5)
+        return self.detections
 
     def spin(self):
         rate = rospy.Rate(self.rate)
-        # global object_width
-        # object_width = 0.1
 
         ref_image = cv2.imread("red_gazebo.png")
         ref_image_width = self.mask(ref_image)
-        object_width = self.width_in_rfimg(ref_image_width)
+        self.object_width = self.width_in_rfimg(ref_image_width)
 
-        focal_length = self.focal_length(self.known_distance,self.real_width, object_width)
+        focal_length = self.focal_length(self.known_distance,self.real_width, self.object_width)
         while not rospy.is_shutdown():
             rate.sleep()
 
@@ -93,26 +93,32 @@ class CascadeBoxDetector(object):
                 continue
             try:
                 image = cv_bridge.imgmsg_to_cv2(self.last_msg, "bgr8")
-                detections = self.cascade.detectMultiScale(image, 1.2, 5)
-                crop_img = self.crop_image( image, detections)
-                rec_image = self.draw_rectangles( image , detections)
-                # cv2.imshow('Image', crop_img)
-                # cv2.waitKey(0) 
-                marker = self.mask(crop_img)
-                draw_im = cv2.drawContours(crop_img, marker, -1, self.box_color, 2)
-                red_obj = cv_bridge.cv2_to_imgmsg(draw_im)
-                self.box_pub.publish(red_obj)
-                object_width = self.width_in_rfimg(marker)
-                if object_width >= 0.10:
-                    distance_est = self.distance(focal_length, self.real_width, object_width)
+                detections = self.find_detections(image)
+                if not len(detections):
+                    rospy.logwarn_throttle(2, "Cascade failed to detect object ")
+                    msg = Distance()
+                    msg.data = -10
+                    msg.stamp = self.stamp
+                    self.dist_pub.publish(msg)
                 else:
-                    print("Distance not found")
-                print("Distance",distance_est)
-                msg = Distance()
-                msg.data = distance_est
-                msg.stamp = self.stamp
-                self.dist_pub.publish(msg)
-                self.cascade_pub.publish(rec_image[1])
+                    crop_img = self.crop_image( image, detections)
+                    self.rec_image = self.draw_rectangles( image , detections)
+                    # cv2.imshow('Image', crop_img)
+                    # cv2.waitKey(0) 
+                    marker = self.mask(crop_img)
+
+                    draw_im = cv2.drawContours(crop_img, marker, -1, self.box_color, 2)
+                    red_obj = cv_bridge.cv2_to_imgmsg(draw_im)
+
+                    self.box_pub.publish(red_obj)
+                    object_width = self.width_in_rfimg(marker)
+                    distance_est = self.distance(focal_length, self.real_width, object_width)
+
+                    msg = Distance()
+                    msg.data = distance_est
+                    msg.stamp = self.stamp
+                    self.dist_pub.publish(msg)
+                    self.cascade_pub.publish(self.rec_image[1])
 
 
             except ValueError:
