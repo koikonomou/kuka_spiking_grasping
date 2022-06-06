@@ -37,24 +37,24 @@ def network_2_robot_action_decoder(action, j1_max, j1_min, j2_max, j2_min, j3_ma
 
 
 def snn_state_2_spike_value_state(state, spike_state_num,
-                                   goal_dir_range=math.pi, linear_spd_range=0.5, angular_spd_range=2.0):
+                                   goal_dir_range=math.pi):
     """
     Transform snn state to Spike Value State for SNN
     :param state: single snn state
     :param spike_state_num: number of spike states
     :param goal_dir_range: range of goal dir
-    :param linear_spd_range: range of linear spd
-    :param angular_spd_range: range of angular spd
     :return: spike_state_value
     """
+    # print("state", len(state))
     spike_state_value = [0 for _ in range(spike_state_num)]
-    if state[0] > 0:
-        spike_state_value[0] = state[0] / goal_dir_range
+    if state[0][0] > 0:
+        spike_state_value[0] = state[0][0] / goal_dir_range
         spike_state_value[1] = 0
     else:
         spike_state_value[0] = 0
-        spike_state_value[1] = abs(state[0]) / goal_dir_range
+        spike_state_value[1] = abs(state[0][0]) / goal_dir_range
     spike_state_value[2:37] = state[1]
     spike_state_value[37:67] = state[2]
-    spike_state_value[68] = state[3]
+    spike_state_value[67] = state[3][0]
+    # print ("spike_state_value", len(spike_state_value))
     return spike_state_value
