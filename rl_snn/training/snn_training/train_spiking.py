@@ -134,8 +134,11 @@ def training(run_name="SNN_R1", episode_num=(100, 200, 300, 400),
             ita_time_end = time.time()
             tb_writer.add_scalar('Spike-snn/ita_time', ita_time_end - ita_time_start, overall_steps)
             tb_writer.add_scalar('Spike-snn/action_epsilon', agent.epsilon, overall_steps)
-            tb_writer.add_scalar('Spike-snn/raw_left_wheel_output', raw_snn_action[0], overall_steps)
-            tb_writer.add_scalar('Spike-snn/raw_right_wheel_output', raw_snn_action[1], overall_steps)
+            tb_writer.add_scalar('Spike-snn/joint_a1', raw_snn_action[0], overall_steps)
+            tb_writer.add_scalar('Spike-snn/joint_a2', raw_snn_action[1], overall_steps)
+            tb_writer.add_scalar('Spike-snn/joint_a3', raw_snn_action[2], overall_steps)
+            tb_writer.add_scalar('Spike-snn/joint_a4', raw_snn_action[3], overall_steps)
+            tb_writer.add_scalar('Spike-snn/joint_a5', raw_snn_action[4], overall_steps)
 
             # Save Model
             if overall_steps % save_steps == 0:
