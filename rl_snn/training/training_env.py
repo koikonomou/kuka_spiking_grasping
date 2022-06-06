@@ -157,7 +157,7 @@ class GazeboEnvironment:
             print("Pause Service Failed: %s" % e)
         '''
         Then stop the simulation
-        1. Transform Robot State to DDPG State
+        1. Transform Robot State to snn State
         2. Compute Reward of the action
         3. Compute if the episode is ended
         '''
@@ -165,21 +165,13 @@ class GazeboEnvironment:
         scan_dist = self.scan_dist
         self.goal_dis_cur = goal_dis
         self.scan_distance_cur = scan_dist
-        state = self._robot_state_2_ddpg_state(next_robot_state)
+        state = self._robot_state_2_snn_state(next_robot_state)
         reward, done = self._compute_reward(state)
         self.goal_dis_pre = self.goal_dis_cur
         self.scan_dist_pre = self.scan_dist_cur
         return state, reward, done
 
-    def reset(self, ita):
-
-        """
-        Reset Function to reset simulation at start of each episode
-
-        Return the initial state after reset
-        :param ita: number of route to reset to
-        :return: state
-        """
+    def reset(self,ita):
 
         assert self.robot_init_pose_list is not None
         # assert ita < len(self.goal_pos_list)
@@ -188,24 +180,7 @@ class GazeboEnvironment:
             self.unpause_gazebo()
         except rospy.ServiceException as e:
             print("Unpause Service Failed: %s" % e)
-        '''
-        First choose new goal position and set target model to goal
-        '''
-        # self.goal_position = self.goal_pos_list[ita]
-        # target_msg = ModelState()
-        # target_msg.model_name = 'target'
-        # target_msg.pose.position.x = self.goal_position[0]
-        # target_msg.pose.position.y = self.goal_position[1]
-        # target_msg.pose.position.z = self.goal_position[2]
-        # rospy.wait_for_service('gazebo/set_model_state')
-        # try:
-        #     resp = self.set_model_target(target_msg)
-        # except rospy.ServiceException as e:
-        #     print("Set Target Service Failed: %s" % e)
-        '''
-        Then reset robot state and get initial state
-        '''
-        # self.pub_action.publish(Twist())
+
         self.pub_a1.publish(Float64())
         self.pub_a2.publish(Float64())
         self.pub_a3.publish(Float64())
@@ -216,7 +191,6 @@ class GazeboEnvironment:
          'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
 
         robot_init_pose = self.robot_init_pose_list
-        # robot_init_quat = self._euler_2_quat(yaw=robot_init_pose[2])
 
         link1_msg = LinkState()
         link1_msg.link_name = 'kuka_kr4r600::link_1'
@@ -296,7 +270,7 @@ class GazeboEnvironment:
         rospy.wait_for_service('gazebo/set_link_state')
         rospy.sleep(0.5)
         '''
-        Transfer the initial robot state to the state for the DDPG Agent
+        Transfer the initial robot state to the state for the Agent
         '''
         rob_state = self._get_next_robot_state()
         rospy.wait_for_service('gazebo/pause_physics')
@@ -309,16 +283,10 @@ class GazeboEnvironment:
         self.goal_dis_cur = self.robot_goal_dist
         self.scan_dist_pre = self.collision
         self.scan_dist_cur = self.collision
-        state = self._robot_state_2_ddpg_state(rob_state)
+        state = self._robot_state_2_snn_state(rob_state)
         return state
 
     def reset_environment(self, init_pose_list):
-        """
-        Set New Environment for training
-        :param init_pose_list: init pose list of robot
-        :param goal_list: goal position list
-        :param obstacle_list: obstacle list
-        """
         self.robot_init_pose_list = init_pose_list
 
 
@@ -335,41 +303,20 @@ class GazeboEnvironment:
         state = [tmp_robot_pose, tmp_robot_speed, tmp_goal_dist]
         return state
 
-    def _robot_state_2_ddpg_state(self, state):
-        """
-        Transform robot state to DDPG state
-        Robot State: [robot_pose, robot_spd, scan]
-        DDPG state: [Distance to goal from camera, Pose, Speed, collision_dist]
-        :param state: robot state
-        :return: ddpg_state
-        """
+    def _robot_state_2_snn_state(self, state):
         # State 0 include the pose(position and orientation) of all joints
         # State 1 include the speed(linear and angular) of all joints
-        # State 2 include all distances
-        ddpg_state = [self.goal_dis_cur, state[0], state[1], state[2]]
-        return ddpg_state
+        # State 2 include scan distance
+        snn_state = [[self.goal_dis_cur], state[0], state[1], [state[2]]]
+        return snn_state
 
     def _compute_reward(self, state):
-        """
-        Compute Reward of the action base on current DDPG state and 
-        last step goal distance and direction
-
-        Reward:
-            1. R_Arrive If Distance to Goal is smaller than D_goal
-            2. R_Collision If Distance to Obstacle is smaller than D_obs
-            3. a * (Last step distance to goal - current step distance to goal)
-
-        If robot near obstacle then done
-        :param state: DDPG state
-        :return: reward, done
-        """
         done = False
 
         near_obstacle = False
         # First check distance from scanner if scan show that it is near obstacle
 
         if self.collision < 0.15 and self.found_obj == 0:
-            print("near_obstacle")
             near_obstacle = True
             
         '''
@@ -424,21 +371,7 @@ class GazeboEnvironment:
 
             self.robot_pose = pos_j1+quat_j1+pos_j2+quat_j2+pos_j3+quat_j3+pos_j4+quat_j4+pos_j5+quat_j5
             self.robot_speed = linear_j1+angular_j1+linear_j2+angular_j2+linear_j3+angular_j3+linear_j4+angular_j4+linear_j5+angular_j5
-            
-            # pose_j1 = np.concatenate((pos_j1, quat_j1))
-            # pose_j2 = np.concatenate((pos_j2, quat_j2))
-            # pose_j3 = np.concatenate((pos_j3, quat_j3))
-            # pose_j4 = np.concatenate((pos_j4, quat_j4))
-            # pose_j5 = np.concatenate((pos_j5, quat_j5))
 
-            # vel_j1 = np.concatenate((linear_j1, angular_j1))
-            # vel_j2 = np.concatenate((linear_j2, angular_j2))
-            # vel_j3 = np.concatenate((linear_j3, angular_j3))
-            # vel_j4 = np.concatenate((linear_j4, angular_j4))
-            # vel_j5 = np.concatenate((linear_j5, angular_j5))
-
-            # self.robot_pose = np.concatenate((pose_j1, pose_j2, pose_j3, pose_j4, pose_j5))
-            # self.robot_speed = np.concatenate((vel_j1, vel_j2, vel_j3, vel_j4, vel_j5))
 
     def _robot_distance_cb(self,msg):
         if self.robot_distance_init is False:
