@@ -108,7 +108,7 @@ class AgentSpiking:
                                          hidden2=actor_net_dim[1],
                                          hidden3=actor_net_dim[2],
                                          batch_window=self.batch_window)
-        self.critic_net = CriticNet(self.state_num, self.action_num,
+        self.critic_net = CriticNet(self.spike_state_num-1, self.action_num,
                                     hidden1=critic_net_dim[0],
                                     hidden2=critic_net_dim[1],
                                     hidden3=critic_net_dim[2])
@@ -117,7 +117,7 @@ class AgentSpiking:
                                                 hidden2=actor_net_dim[1],
                                                 hidden3=actor_net_dim[2],
                                                 batch_window=self.batch_window)
-        self.target_critic_net = CriticNet(self.state_num, self.action_num,
+        self.target_critic_net = CriticNet(self.spike_state_num-1, self.action_num,
                                            hidden1=critic_net_dim[0],
                                            hidden2=critic_net_dim[1],
                                            hidden3=critic_net_dim[2])
@@ -299,25 +299,31 @@ class AgentSpiking:
         state_spikes = state_spikes.astype(float)
         return state_spikes
 
+    def flatten(self,xss):
+        return [x for xs in xss for x in xs]
+
     def _random_minibatch(self):
         """
         Random select mini-batch from memory
         :return: state_batch, action_batch, reward_batch, nstate_batch, done_batch
         """
         minibatch = random.sample(self.memory, self.batch_size)
-        state_batch = np.zeros((self.batch_size, self.state_num))
+        state_batch = np.zeros((self.batch_size, self.spike_state_num-1))
         spike_state_value_batch = np.zeros((self.batch_size, self.spike_state_num))
         action_batch = np.zeros((self.batch_size, self.action_num))
         reward_batch = np.zeros((self.batch_size, 1))
-        nstate_batch = np.zeros((self.batch_size, self.state_num))
+        nstate_batch = np.zeros((self.batch_size, self.spike_state_num-1))
         spike_nstate_value_batch = np.zeros((self.batch_size, self.spike_state_num))
         done_batch = np.zeros((self.batch_size, 1))
         for num in range(self.batch_size):
-            state_batch[num, :] = np.array(minibatch[num][0])
+            minibatch1 = self.flatten(minibatch[num][0])
+            state_batch[num, :] = np.array(minibatch1)
             spike_state_value_batch[num, :] = np.array(minibatch[num][1])
-            action_batch[num, :] = np.array(minibatch[num][2])
+            minibatch3 = minibatch[num][2]
+            action_batch[num, :] = np.array(minibatch3)
             reward_batch[num, 0] = minibatch[num][3]
-            nstate_batch[num, :] = np.array(minibatch[num][4])
+            minibatch5 = self.flatten(minibatch[num][4])
+            nstate_batch[num, :] = np.array(minibatch5)
             spike_nstate_value_batch[num, :] = np.array(minibatch[num][5])
             done_batch[num, 0] = minibatch[num][6]
         state_spikes_batch = self._state_2_state_spikes(spike_state_value_batch, self.batch_size)
