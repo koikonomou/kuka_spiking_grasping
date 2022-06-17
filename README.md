@@ -1,5 +1,5 @@
 # Kuka spiking reinforcement learning package
-This folder contains two seperate packages.
+This folder contains two separate packages.
 
 The rl_snn package contains the reinforcement learning experiment (environment, agent, actor-critic networks)
 
