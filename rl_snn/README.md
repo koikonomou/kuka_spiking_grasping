@@ -32,3 +32,8 @@ Create a conda env in order to run python3 experiments with ROS Melodic and run 
 	pip install setuptools==59.5.0 
 	pip install shapely 
 ```
+In the folder rl_snn/training/snn_training the folder runs contains all the information related to the training.
+Open the visualisation by running: 
+```
+tensorboard --logdir=runs
+```
