@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 from table_exploration.msg import Distance
 
 
-
+# This code runs only with python 3
 class CascadeBoxDetector(object):
 
     def __init__(self):
@@ -91,6 +91,7 @@ class CascadeBoxDetector(object):
         # ref_image_width = self.mask(ref_image)[0]
         self.object_width_in_rfframe = 448
         focal_length = self.focal_length(self.known_distance,self.real_width, self.object_width_in_rfframe)
+        print("focal_length", focal_length)
         while not rospy.is_shutdown():
             rate.sleep()
 
