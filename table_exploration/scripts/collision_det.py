@@ -11,8 +11,8 @@ class Collision(object):
 		self.rate = rospy.get_param("rate",10)
 		self.joint_topic = rospy.get_param("joint_topic", "/gazebo/link_states")
 		self.joint_sub = rospy.Subscriber(self.joint_topic, LinkStates, self.callback, queue_size=10)
-		# self.col_pb = rospy.get_param("col_pb",)
 		self.pub = rospy.Publisher('/collision_detection', Float64, queue_size=1)
+		self.goal_pos = [0.0,0.0,0.90]
 
 	def dot(self, v, w):
 	    x,y,z = v
@@ -90,16 +90,21 @@ class Collision(object):
 				
 				# calculate distance from joint 2 to link 1
 				self.distj2_link1 = self.pnt2line(self.pos_j2, self.pos_j0, self.pos_j1) 
-				
+				p1 = np.array(self.pos_j5)
+				p2 = np.array(self.goal_pos)
+				squared_dist = np.sum((p1-p2)**2, axis=0)
+				actual_dist = np.sqrt(squared_dist)
 				# calculate distance from the end effector to the base
 				self.distj5_link1 = self.pnt2line(self.pos_j5,self.pos_j0,self.pos_j1)
 
+				""" if end effector is lower than table then it has collide 
+				and the distance will be -100"""
 				if self.height_endef < 0.85:
 					self.pub.publish(-100)
-				elif self.distj5_link1 < 0.15:
+				elif self.distj5_link1 < 0.20:
 					self.pub.publish(-80)
 				else:
-					self.pub.publish(1000)
+					self.pub.publish(actual_dist)
 			except ValueError:
 				rospy.logwarn_throttle(2, "object detection error")
 
