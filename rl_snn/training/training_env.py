@@ -72,7 +72,7 @@ class GazeboEnvironment:
         self.goal_dis_cur = 0  # Current step goal 
         self.scan_dist_pre = 0
         self.scan_dist_cur = 0
-        self.init_pose_list = [0.0,0.0,0.0,0.0,0.0]
+        # self.init_pose_list = [0.0,0.0,0.0,0.0,0.0]
         # Subscriber
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         rospy.Subscriber('gazebo/link_states', LinkStates, self._robot_link_cb )
@@ -180,12 +180,17 @@ class GazeboEnvironment:
             self.unpause_gazebo()
         except rospy.ServiceException as e:
             print("Unpause Service Failed: %s" % e)
+        self.pub_a1.publish(Float64())
+        self.pub_a2.publish(Float64())
+        self.pub_a3.publish(Float64())
+        self.pub_a4.publish(Float64())
+        self.pub_a5.publish(Float64())
 
-        # self.pub_a1.publish(self.init_pose_list[0])
-        # self.pub_a2.publish(self.init_pose_list[1])
-        # self.pub_a3.publish(self.init_pose_list[2])
-        # self.pub_a4.publish(self.init_pose_list[3])
-        # self.pub_a5.publish(self.init_pose_list[4])
+        self.pub_a1.publish(self.robot_init_pose_list[0])
+        self.pub_a2.publish(self.robot_init_pose_list[1])
+        self.pub_a3.publish(self.robot_init_pose_list[2])
+        self.pub_a4.publish(self.robot_init_pose_list[3])
+        self.pub_a5.publish(self.robot_init_pose_list[4])
         """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
          'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
          'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
@@ -214,11 +219,11 @@ class GazeboEnvironment:
             self.unpause_gazebo()
         except rospy.ServiceException as e:
             print("Unpause Service Failed: %s" % e)
-        self.pub_a1.publish(self.init_pose_list[0])
-        self.pub_a2.publish(self.init_pose_list[1])
-        self.pub_a3.publish(self.init_pose_list[2])
-        self.pub_a4.publish(self.init_pose_list[3])
-        self.pub_a5.publish(self.init_pose_list[4])
+        self.pub_a1.publish(self.robot_init_pose_list[0])
+        self.pub_a2.publish(self.robot_init_pose_list[1])
+        self.pub_a3.publish(self.robot_init_pose_list[2])
+        self.pub_a4.publish(self.robot_init_pose_list[3])
+        self.pub_a5.publish(self.robot_init_pose_list[4])
         rospy.wait_for_service('gazebo/pause_physics')
         try:
             self.pause_gazebo()
