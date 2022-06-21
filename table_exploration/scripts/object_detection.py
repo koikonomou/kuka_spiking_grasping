@@ -101,12 +101,20 @@ class CascadeBoxDetector(object):
             try:
                 image = cv_bridge.imgmsg_to_cv2(self.last_msg, "bgr8")
                 detections = self.find_detections(image)
-                if not len(detections):
+                redinim = self.mask(image)
+                if not len(detections) and not redinim[1] == 1:
                     rospy.logwarn_throttle(2, "Cascade failed to detect object ")
                     msg = Distance()
                     msg.data = -10
                     msg.stamp = self.stamp
                     msg.havered = 0
+                    self.dist_pub.publish(msg)
+                elif not len(detections) and not redinim[1] == 0:
+                    rospy.logwarn_throttle(2, " Cascade failed to detect object but red color detected in image ")
+                    msg = Distance()
+                    msg.data = 0
+                    msg.stamp = self.stamp
+                    msg.havered = 1
                     self.dist_pub.publish(msg)
                 else:
                     crop_img = self.crop_image( image, detections)
@@ -116,7 +124,7 @@ class CascadeBoxDetector(object):
                     marker = self.mask(crop_img)[0]
                     # print(marker)
                     havered = self.mask(crop_img)[1]
-                    if havered==0:
+                    if redinim[1]== 0:
                         rospy.logwarn_throttle(2, "Nothing red on frame")
                         msg = Distance()
                         msg.data = -10
@@ -129,10 +137,10 @@ class CascadeBoxDetector(object):
 
                         self.box_pub.publish(red_obj)
                         object_width = self.width_in_rfimg(marker)
-                        distance_est = self.distance(focal_length, self.real_width, object_width)
+                        # distance_est = self.distance(focal_length, self.real_width, object_width)
 
                         msg = Distance()
-                        msg.data = distance_est
+                        # msg.data = distance_est
                         msg.stamp = self.stamp
                         msg.havered = 1
 
