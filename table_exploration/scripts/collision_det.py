@@ -4,6 +4,8 @@ import numpy as np
 from sensor_msgs.msg import JointState
 from gazebo_msgs.msg import LinkStates
 from std_msgs.msg import Float64
+from table_exploration.msg import Collision
+
 
 class Collision(object):
 	def __init__(self):
@@ -11,8 +13,8 @@ class Collision(object):
 		self.rate = rospy.get_param("rate",10)
 		self.joint_topic = rospy.get_param("joint_topic", "/gazebo/link_states")
 		self.joint_sub = rospy.Subscriber(self.joint_topic, LinkStates, self.callback, queue_size=10)
-		self.pub = rospy.Publisher('/collision_detection', Float64, queue_size=1)
-		self.goal_pos = [0.0,0.0,0.90]
+		self.pub = rospy.Publisher('/collision_detection', Collision, queue_size=1)
+		self.goal_pos = [0.5,0.0,1.0]
 
 	def dot(self, v, w):
 	    x,y,z = v
@@ -100,11 +102,20 @@ class Collision(object):
 				""" if end effector is lower than table then it has collide 
 				and the distance will be -100"""
 				if self.height_endef < 0.85:
-					self.pub.publish(-100)
+					msg = Collision()
+					msg.goal_dist = actual_dist
+					msg.have_collide = -5
+					self.pub.publish(msg)
 				elif self.distj5_link1 < 0.20:
-					self.pub.publish(-80)
+					msg = Collision()
+					msg.goal_dist = actual_dist
+					msg.have_collide = -5
+					self.pub.publish(msg)
 				else:
-					self.pub.publish(actual_dist)
+					msg = Collision()
+					msg.goal_dist = actual_dist
+					msg.have_collide = 0
+					self.pub.publish(msg)
 			except ValueError:
 				rospy.logwarn_throttle(2, "object detection error")
 
