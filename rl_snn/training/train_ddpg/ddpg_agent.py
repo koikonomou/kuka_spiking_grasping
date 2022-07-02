@@ -43,7 +43,6 @@ class Agent:
                  epsilon_rand_decay_start=60000,
                  epsilon_rand_decay_step=1,
                  poisson_window=50,
-                 use_poisson=False,
                  use_cuda=True):
         """
 
@@ -84,7 +83,6 @@ class Agent:
         self.epsilon_rand_decay_start = epsilon_rand_decay_start
         self.epsilon_rand_decay_step = epsilon_rand_decay_step
         self.poisson_window = poisson_window
-        self.use_poisson = use_poisson
         self.use_cuda = use_cuda
         '''
         Random Action
@@ -108,7 +106,7 @@ class Agent:
                                   hidden1=actor_net_dim[0],
                                   hidden2=actor_net_dim[1],
                                   hidden3=actor_net_dim[2])
-        self.critic_net = CriticNet(self.state_num, self.action_num,
+        self.critic_net = CriticNet(self.rescale_state_num-1, self.action_num,
                                     hidden1=critic_net_dim[0],
                                     hidden2=critic_net_dim[1],
                                     hidden3=critic_net_dim[2])
@@ -116,7 +114,7 @@ class Agent:
                                          hidden1=actor_net_dim[0],
                                          hidden2=actor_net_dim[1],
                                          hidden3=actor_net_dim[2])
-        self.target_critic_net = CriticNet(self.state_num, self.action_num,
+        self.target_critic_net = CriticNet(self.rescale_state_num-1, self.action_num,
                                            hidden1=critic_net_dim[0],
                                            hidden2=critic_net_dim[1],
                                            hidden3=critic_net_dim[2])
@@ -158,8 +156,8 @@ class Agent:
         """
         with torch.no_grad():
             state = np.array(state)
-            if self.use_poisson:
-                state = self._state_2_poisson_state(state, 1)
+            # if self.use_poisson:
+            state = self._state_2_poisson_state(state, 1)
             state = torch.Tensor(state.reshape((1, -1))).to(self.device)
             action = self.actor_net(state).to('cpu')
             action = action.numpy().squeeze()
@@ -286,12 +284,14 @@ class Agent:
             rescale_state_batch[num, :] = np.array(minibatch[num][1])
             action_batch[num, :] = np.array(minibatch[num][2])
             reward_batch[num, 0] = minibatch[num][3]
-            nstate_batch[num, :] = np.array(minibatch[num][4])
+            minibatch5 = self.flatten(minibatch[num][4])
+
+            nstate_batch[num, :] = np.array(minibatch5)
             rescale_nstate_batch[num, :] = np.array(minibatch[num][5])
             done_batch[num, 0] = minibatch[num][6]
-        if self.use_poisson:
-            rescale_state_batch = self._state_2_poisson_state(rescale_state_batch, self.batch_size)
-            rescale_nstate_batch = self._state_2_poisson_state(rescale_nstate_batch, self.batch_size)
+        # if self.use_poisson:
+        rescale_state_batch = self._state_2_poisson_state(rescale_state_batch, self.batch_size)
+        rescale_nstate_batch = self._state_2_poisson_state(rescale_nstate_batch, self.batch_size)
         state_batch = torch.Tensor(state_batch).to(self.device)
         rescale_state_batch = torch.Tensor(rescale_state_batch).to(self.device)
         action_batch = torch.Tensor(action_batch).to(self.device)

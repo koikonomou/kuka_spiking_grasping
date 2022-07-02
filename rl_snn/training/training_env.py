@@ -7,6 +7,8 @@ from std_srvs.srv import Empty
 from std_msgs.msg import Float64
 from shapely.geometry import Point
 from table_exploration.msg import Distance
+from table_exploration.msg import Collision
+
 from gazebo_msgs.srv import SetModelState
 from gazebo_msgs.srv import SetLinkState
 from gazebo_msgs.msg import LinkStates, LinkState , ModelState
@@ -28,7 +30,7 @@ class GazeboEnvironment:
                  obs_near_th=0.15,
                  goal_near_th=0.15,
                  goal_reward=10,
-                 col_reward=-5,
+                 col_reward=-20,
                  goal_dis_amp=5,
                  step_time=0.1):
         """
@@ -59,7 +61,7 @@ class GazeboEnvironment:
         # 5 (joints) * [3 (linear x,y,z) + 3 (angular x,y,z)] = 30 values
         self.robot_speed = [0.]*30
         self.robot_goal_dist = 0
-        self.found_obj = -100 # IF 0 object dont is the scene view elif 1 object in scene view.
+        # self.found_obj = -100 # IF 0 object dont is the scene view elif 1 object in scene view.
         self.collision = 0 # Laserscan data for collision. (Distance)
         self.scan_dist = 0
         self.have_collide = 0
@@ -72,13 +74,13 @@ class GazeboEnvironment:
         self.goal_dis_cur = 0  # Current step goal 
         self.scan_dist_pre = 0
         self.scan_dist_cur = 0
-        self.init_pose_list = [0.0,0.0,0.0,0.0,0.0]
+        # self.init_pose_list = [0.0,0.0,0.0,0.0,0.0]
         # Subscriber
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         rospy.Subscriber('gazebo/link_states', LinkStates, self._robot_link_cb )
         rospy.Subscriber('/kuka/collision', Float64, self.collision_dist_cb)
         rospy.Subscriber('/kuka/box/distance', Distance, self._robot_distance_cb )
-        rospy.Subscriber('/collision_detection', Float64, self.have_collide_cb)
+        rospy.Subscriber('/collision_detection', Collision, self.collision_cb)
 
         """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
          'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
@@ -138,7 +140,6 @@ class GazeboEnvironment:
         # move_joint_a6 = Float64
         # move_joint_a6.data = action[5]
 
-        rospy.sleep(self.step_time)
 
         self.pub_a1.publish(move_joint_a1)
         self.pub_a2.publish(move_joint_a2)
@@ -146,6 +147,7 @@ class GazeboEnvironment:
         self.pub_a4.publish(move_joint_a4)
         self.pub_a5.publish(move_joint_a5)
         # self.pub_a6.publish(move_joint_a6)
+        rospy.sleep(self.step_time)
 
 
         next_robot_state = self._get_next_robot_state()
@@ -160,10 +162,8 @@ class GazeboEnvironment:
         2. Compute Reward of the action
         3. Compute if the episode is ended
         '''
-        goal_dis = self.have_collide
-        scan_dist = self.scan_dist
-        self.goal_dis_cur = goal_dis
-        self.scan_dist_cur = scan_dist
+        self.goal_dis_cur = self.actual_dist
+        self.scan_dist_cur = self.scan_dist
         have_collide_now = self.have_collide
         state = self._robot_state_2_snn_state(next_robot_state)
         reward, done = self._compute_reward(state, have_collide_now)
@@ -171,7 +171,7 @@ class GazeboEnvironment:
         self.scan_dist_pre = self.scan_dist_cur
         return state, reward, done
 
-    def reset(self,ita):
+    def reset(self):
 
         assert self.robot_init_pose_list is not None
         # assert ita < len(self.goal_pos_list)
@@ -180,12 +180,17 @@ class GazeboEnvironment:
             self.unpause_gazebo()
         except rospy.ServiceException as e:
             print("Unpause Service Failed: %s" % e)
+        self.pub_a1.publish(Float64())
+        self.pub_a2.publish(Float64())
+        self.pub_a3.publish(Float64())
+        self.pub_a4.publish(Float64())
+        self.pub_a5.publish(Float64())
 
-        # self.pub_a1.publish(self.init_pose_list[0])
-        # self.pub_a2.publish(self.init_pose_list[1])
-        # self.pub_a3.publish(self.init_pose_list[2])
-        # self.pub_a4.publish(self.init_pose_list[3])
-        # self.pub_a5.publish(self.init_pose_list[4])
+        self.pub_a1.publish(self.robot_init_pose_list[0])
+        self.pub_a2.publish(self.robot_init_pose_list[1])
+        self.pub_a3.publish(self.robot_init_pose_list[2])
+        self.pub_a4.publish(self.robot_init_pose_list[3])
+        self.pub_a5.publish(self.robot_init_pose_list[4])
         """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
          'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
          'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
@@ -200,8 +205,8 @@ class GazeboEnvironment:
         except rospy.ServiceException as e:
             print("Pause Service Failed: %s" % e)
         # goal_dis = self._compute_dis_2_goal(rob_state[0])
-        self.goal_dis_pre = self.have_collide
-        self.goal_dis_cur = self.have_collide
+        self.goal_dis_pre = self.actual_dist
+        self.goal_dis_cur = self.actual_dist
         self.scan_dist_pre = self.scan_dist
         self.scan_dist_cur = self.scan_dist
         state = self._robot_state_2_snn_state(rob_state)
@@ -214,11 +219,11 @@ class GazeboEnvironment:
             self.unpause_gazebo()
         except rospy.ServiceException as e:
             print("Unpause Service Failed: %s" % e)
-        self.pub_a1.publish(self.init_pose_list[0])
-        self.pub_a2.publish(self.init_pose_list[1])
-        self.pub_a3.publish(self.init_pose_list[2])
-        self.pub_a4.publish(self.init_pose_list[3])
-        self.pub_a5.publish(self.init_pose_list[4])
+        self.pub_a1.publish(self.robot_init_pose_list[0])
+        self.pub_a2.publish(self.robot_init_pose_list[1])
+        self.pub_a3.publish(self.robot_init_pose_list[2])
+        self.pub_a4.publish(self.robot_init_pose_list[3])
+        self.pub_a5.publish(self.robot_init_pose_list[4])
         rospy.wait_for_service('gazebo/pause_physics')
         try:
             self.pause_gazebo()
@@ -233,8 +238,8 @@ class GazeboEnvironment:
         """
         tmp_robot_pose = copy.deepcopy(self.robot_pose)
         tmp_robot_speed = copy.deepcopy(self.robot_speed)
-        # tmp_dist = self._compute_dis_2_goal(self.found_obj)
-        tmp_goal_dist = copy.deepcopy(self.collision)
+        tmp_goal_dist = self.scan_dist
+        # tmp_goal_dist = self.found_obj
         state = [tmp_robot_pose, tmp_robot_speed, tmp_goal_dist]
         return state
 
@@ -251,26 +256,28 @@ class GazeboEnvironment:
         near_obstacle = False
         goal = False
         # First check distance from scanner if scan show that it is near obstacle
-        if have_collide_now == -100 or have_collide_now == -80:
+        if have_collide_now != 0:
             near_obstacle = True
         elif self.scan_dist < 0.2 and self.found_obj == 0:
             near_obstacle = True
-        elif have_collide_now < 0.2 and self.found_obj == 1:
-            print("Reached goal")
-            goal = True
+        elif self.actual_dist < 0.05:
+            near_obstacle = True
+        # elif have_collide_now < 0.2 and self.found_obj == 1:
+        #     print("Reached goal")
+        #     goal = True
             
         '''
         Assign Rewards
         '''
 
-        if near_obstacle:
-            reward = self.col_reward
-            done = True
-        elif goal:
+        if self.goal_dis_cur < 0.1:
             reward = self.goal_reward
             done = True
+        elif near_obstacle:
+            reward = self.col_reward
+            done = True
         else:
-            reward = self.goal_dis_amp * (self.goal_dis_pre - self.goal_dis_cur)
+            reward = ((self.goal_dis_amp + (self.found_obj * self.goal_dis_amp)))/self.scan_dist * 1/(self.goal_dis_cur)
         return reward, done
 
     def _robot_link_cb(self,msg):
@@ -324,7 +331,8 @@ class GazeboEnvironment:
             self.collision_dist_init = True
         self.scan_dist = msg.data
 
-    def have_collide_cb(self,msg):
+    def collision_cb(self,msg):
         if self.collision_init is False:
             self.collision_init = True
-        self.have_collide = msg.data
+        self.have_collide = msg.have_collide
+        self.actual_dist = msg.goal_dist
