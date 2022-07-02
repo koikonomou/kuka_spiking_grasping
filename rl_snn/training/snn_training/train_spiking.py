@@ -11,14 +11,14 @@ from training.utility import *
 from training.training_env import GazeboEnvironment
 
 
-def training(run_name="SNN_R1", episode_num=100,
+def training(run_name="SNN_R1", episode_num=2000,
                 iteration_num_start=200, iteration_num_step=1,
                 iteration_num_max=1000,
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
                 env_epsilon=0.9, env_epsilon_decay=0.999,
                 goal_dis_min=0.1,
-                obs_reward=-20, goal_reward=10, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
-                state_num=4, action_num=5, spike_state_num=68, batch_window=4, actor_lr=1e-5,
+                obs_reward=-20, goal_reward=20, goal_dis_amp=1, goal_th=0.5, obs_th=0.35,
+                state_num=4, action_num=5, spike_state_num=68, batch_window=68, actor_lr=1e-5,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
                 rand_step=2, target_tau=0.01, target_step=1, use_cuda=True):
 
@@ -69,7 +69,7 @@ def training(run_name="SNN_R1", episode_num=100,
         print("Directory ", dirName, " already exists")
 
     # Read Random Start Pose and Goal Position based on experiment name
-    overall_init_list = [0.0,0.0,0.0,0.0,0.0]
+    overall_init_list = [0.0, -1.65, 0.87, 1.74, 0.0]
 
     # Define Environment and Agent Object for training
     rospy.init_node("training")
@@ -92,7 +92,6 @@ def training(run_name="SNN_R1", episode_num=100,
     overall_steps = 0
     overall_episode = 0
     env_episode = 0
-    env_ita = 0
     ita_per_episode = iteration_num_start
 
     env.reset_environment(overall_init_list)
@@ -103,7 +102,7 @@ def training(run_name="SNN_R1", episode_num=100,
     # Start Training
     start_time = time.time()
     while True:
-        state = env.reset(env_ita)
+        state = env.reset()
         spike_state_value = snn_state_2_spike_value_state(state, spike_state_num)
         episode_reward = 0
         for ita in range(ita_per_episode):
@@ -130,11 +129,11 @@ def training(run_name="SNN_R1", episode_num=100,
             ita_time_end = time.time()
             # tb_writer.add_scalar('Spike-snn/ita_time', ita_time_end - ita_time_start, overall_steps)
             # tb_writer.add_scalar('Spike-snn/action_epsilon', agent.epsilon, overall_steps)
-            tb_writer.add_scalar('Spike-snn/joint_a1', raw_snn_action[0], overall_steps)
-            tb_writer.add_scalar('Spike-snn/joint_a2', raw_snn_action[1], overall_steps)
-            tb_writer.add_scalar('Spike-snn/joint_a3', raw_snn_action[2], overall_steps)
-            tb_writer.add_scalar('Spike-snn/joint_a4', raw_snn_action[3], overall_steps)
-            tb_writer.add_scalar('Spike-snn/joint_a5', raw_snn_action[4], overall_steps)
+            # tb_writer.add_scalar('Spike-snn/joint_a1', raw_snn_action[0], overall_steps)
+            # tb_writer.add_scalar('Spike-snn/joint_a2', raw_snn_action[1], overall_steps)
+            # tb_writer.add_scalar('Spike-snn/joint_a3', raw_snn_action[2], overall_steps)
+            # tb_writer.add_scalar('Spike-snn/joint_a4', raw_snn_action[3], overall_steps)
+            # tb_writer.add_scalar('Spike-snn/joint_a5', raw_snn_action[4], overall_steps)
 
             # Save Model
             if overall_steps % save_steps == 0:
@@ -167,16 +166,14 @@ def training(run_name="SNN_R1", episode_num=100,
         overall_episode += 1
         env_episode += 1
         if env_episode == episode_num:
-            print("Environment ", env_ita, " Training Finished ...")
-            if env_ita == 3:
-                break
-            env_ita += 1
+            print(" Training Finished ...")
+
             env.reset_environment(overall_init_list)
 
             agent.reset_epsilon(env_epsilon,
                                 env_epsilon_decay)
             ita_per_episode = iteration_num_start
-            env_episode = 0
+            break
     end_time = time.time()
     print("Finish Training with time: ", (end_time - start_time) / 60, " Min")
 
