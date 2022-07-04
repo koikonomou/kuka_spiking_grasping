@@ -1,32 +1,58 @@
 # ! /usr/bin/env python3
 import math
 import rospy
-from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float64
+from sensor_msgs.msg import LaserScan
+from table_exploration.msg import Collision
 
 
-def callback(msg):
-    dist = min(msg.ranges[288:431])
-    
-    if math.isnan(dist) == True :
-        dist = -10
-    elif math.isinf(dist) == True:
-        dist = -10
+class Distance(object):
+    def __init__(self):
+        rospy.init_node('scan_collision', anonymous=True)
+        self.scan_cb_init = False
+        self.actual_dist_cb_init = False
+        self.rate = rospy.get_param("rate",10)
+        self.pub = rospy.Publisher('/kuka/collision', Float64, queue_size=1)
+        self.sub = rospy.Subscriber('/kuka/laser/scan', LaserScan, self.scan_cb, queue_size=10)
+        self.dist_sub = rospy.Subscriber('/collision_detection', Collision, self.dist_cb, queue_size=10)
+        while not self.scan_cb_init:
+            continue
+        while not self.actual_dist_cb_init:
+            continue
+        rospy.loginfo("Finish Subscriber Init...")
 
-    test= Float64()
-    test.data = dist
-    pub.publish(test)
+    def scan_cb(self,msg):
+        if self.scan_cb_init is False :
+            self.scan_cb_init = True
+        dist = min(msg.ranges[288:431])
+        self.dist = dist
 
-def main():
-    global pub
-    rospy.init_node('collision')
-    pub = rospy.Publisher('/kuka/collision', Float64, queue_size=1)
-    sub = rospy.Subscriber('/kuka/laser/scan', LaserScan, callback)
-    rospy.spin()
+    def dist_cb(self,msg):
+        if self.actual_dist_cb_init is False:
+            self.actual_dist_cb_init = True
+        actual_dist = msg.goal_dist
+        self.actual_dist = actual_dist
+
+
+    def spin(self):
+        rate = rospy.Rate(self.rate)
+
+        while not rospy.is_shutdown():
+            rate.sleep()
+            try:
+                distance = self.dist
+                if math.isnan(distance) == True :
+                    distance = self.actual_dist
+                elif math.isinf(distance) == True:
+                    distance = self.actual_dist
+
+                test= Float64()
+                test.data = distance 
+                self.pub.publish(test)
+            except ValueError:
+                rospy.logwarn_throttle(2, "object detection error")
 
 
 if __name__=='__main__':
-    try:
-        main()
-    except rospy.ROSInterruptException:
-        pass
+    node = Distance()
+    node.spin()
