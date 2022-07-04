@@ -1,44 +1,44 @@
 import math
 import rospy
 import numpy as np
-from sensor_msgs.msg import JointState
 from gazebo_msgs.msg import LinkStates
-from std_msgs.msg import Float64
+from table_exploration.msg import Collision
 
-class Collision(object):
+class ObjectCollision(object):
 	def __init__(self):
 		rospy.init_node('collision_detection', anonymous = True)
 		self.rate = rospy.get_param("rate",10)
 		self.joint_topic = rospy.get_param("joint_topic", "/gazebo/link_states")
 		self.joint_sub = rospy.Subscriber(self.joint_topic, LinkStates, self.callback, queue_size=10)
-		self.pub = rospy.Publisher('/collision_detection', Float64, queue_size=1)
-		self.goal_pos = [0.0,0.0,0.90]
+		self.pub = rospy.Publisher('/collision_detection', Collision, queue_size=1)
+		self.goal_pos = [0.5,0.0,1.0]
+		self.col_msg = Collision()
 
 	def dot(self, v, w):
-	    x,y,z = v
-	    X,Y,Z = w
-	    return x*X + y*Y + z*Z
+		x,y,z = v
+		X,Y,Z = w
+		return x*X + y*Y + z*Z
 
 	def length(self, v):
-	    x,y,z = v
-	    return math.sqrt(x*x + y*y + z*z)
+		x,y,z = v
+		return math.sqrt(x*x + y*y + z*z)
 
 	def vector(self, b, e):
-	    x,y,z = b
-	    X,Y,Z = e
-	    return (X-x, Y-y, Z-z)
+		x,y,z = b
+		X,Y,Z = e
+		return (X-x, Y-y, Z-z)
 
 	def unit(self, v):
-	    x,y,z = v
-	    mag = self.length(v)
-	    return (x/mag, y/mag, z/mag)
+		x,y,z = v
+		mag = self.length(v)
+		return (x/mag, y/mag, z/mag)
 
 	def distance(self, p0, p1):
-	    return self.length(self.vector(p0,p1))
+		return self.length(self.vector(p0,p1))
 
 	def scale(self, v, sc):
-	    x,y,z = v
-	    return (x * sc, y * sc, z * sc)
+		x,y,z = v
+		return (x * sc, y * sc, z * sc)
 
 	def add(self, v, w):
 		x,y,z = v
@@ -53,12 +53,11 @@ class Collision(object):
 		pnt_vec_scaled = self.scale(pnt_vec, 1.0/line_len)
 		t = self.dot(line_unitvec, pnt_vec_scaled)    
 		if t < 0.0:
-		    t = 0.0
+			t = 0.0
 		elif t > 1.0:
-		    t = 1.0
+			t = 1.0
 		nearest = self.scale(line_vec, t)
 		dist = self.distance(nearest, pnt_vec)
-		# nearest = add(nearest, start)
 		return dist
 
 	def callback(self, msg):
@@ -99,17 +98,25 @@ class Collision(object):
 
 				""" if end effector is lower than table then it has collide 
 				and the distance will be -100"""
-				if self.height_endef < 0.85:
-					self.pub.publish(-100)
-				elif self.distj5_link1 < 0.20:
-					self.pub.publish(-80)
+				if self.height_endef < 0.90:
+					self.col_msg.goal_dist = actual_dist
+					self.col_msg.have_collide = 1
+					self.pub.publish(self.col_msg)
+
+				elif self.distj5_link1 < 0.30:
+					self.col_msg.goal_dist = actual_dist
+					self.col_msg.have_collide = 1
+					self.pub.publish(self.col_msg)
+
 				else:
-					self.pub.publish(actual_dist)
+					self.col_msg.goal_dist = actual_dist
+					self.col_msg.have_collide = 0
+					self.pub.publish(self.col_msg)
 			except ValueError:
 				rospy.logwarn_throttle(2, "object detection error")
 
 
 
 if __name__ == "__main__":
-    node = Collision()
+    node = ObjectCollision()
     node.spin()
