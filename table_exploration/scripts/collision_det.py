@@ -14,9 +14,9 @@ class ObjectCollision(object):
 		self.pub = rospy.Publisher('/collision_detection', Collision, queue_size=1)
 		self.goal_pos = [0.5,0.0,1.0]
 		self.col_msg = Collision()
-        while not self.callback_init:
-            continue
-        rospy.loginfo("Finish Subscriber Init...")
+		while not self.callback_init:
+			continue
+		rospy.loginfo("Finish Subscriber Init...")
 
 	def dot(self, v, w):
 		x,y,z = v
@@ -66,8 +66,8 @@ class ObjectCollision(object):
 
 	def callback(self, msg):
         # rate = rospy.Rate(self.rate)
-        if self.callback_init is False:
-            self.callback_init = True
+		if self.callback_init is False:
+			self.callback_init = True
 		self.pos_j0 = [msg.pose[1].position.x, msg.pose[1].position.y, msg.pose[1].position.z]
 		self.pos_j1 = [msg.pose[2].position.x, msg.pose[2].position.y, msg.pose[2].position.z]
 		self.pos_j2 = [msg.pose[3].position.x, msg.pose[3].position.y, msg.pose[3].position.z]
