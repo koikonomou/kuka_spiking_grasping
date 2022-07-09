@@ -95,11 +95,11 @@ def ddpg_state_2_spike_value_state(state, spike_state_num,
     # print(state)
     spike_state_value = [0 for _ in range(spike_state_num)]
     if state[0][0] > 0:
-        spike_state_value[0] = state[0][0] / goal_dir_range
+        spike_state_value[0] = state[0][0]
         spike_state_value[1] = 0
     else:
         spike_state_value[0] = 0
-        spike_state_value[1] = abs(state[0][0]) / goal_dir_range
+        spike_state_value[1] = state[0][0]
     spike_state_value[2:37] = state[1]
     spike_state_value[37:67] = state[2]
     spike_state_value[67] = state[3][0]

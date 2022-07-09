@@ -277,7 +277,7 @@ class GazeboEnvironment:
             reward = self.col_reward
             done = True
         else:
-            reward = ((self.goal_dis_amp + (self.found_obj * self.goal_dis_amp)))/self.scan_dist * 1/(self.goal_dis_cur)
+            reward = (self.goal_dis_amp + (self.found_obj * self.goal_dis_amp))/self.scan_dist * 1/(self.goal_dis_cur)
         return reward, done
 
     def _robot_link_cb(self,msg):
