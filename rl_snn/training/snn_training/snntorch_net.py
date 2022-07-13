@@ -32,7 +32,7 @@ class PseudoSpikeRect(torch.autograd.Function):
 
 
 # Initialize surrogate gradient
-spike_grad1 = surrogate.fast_sigmoid()  # passes default parameters from a closure
+# spike_grad1 = surrogate.fast_sigmoid()  # passes default parameters from a closure
 # spike_grad2 = surrogate.FastSigmoid.apply  # passes default parameters, equivalent to above
 # spike_grad3 = surrogate.fast_sigmoid(slope=50)  # custom parameters from a closure
 
@@ -49,16 +49,16 @@ class ActorNetSpiking(nn.Module):
         self.hidden1 = hidden1
         self.hidden2 = hidden2
         self.hidden3 = hidden3
-        # self.spike_grad1 = PseudoSpikeRect.apply
+        self.spike_grad1 = PseudoSpikeRect.apply
      # Initialize layers, specify the ``spike_grad`` argument
         self.fc1 = nn.Linear(self.state_num, self.hidden1)
-        self.lif1 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=spike_grad1)
+        self.lif1 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=self.spike_grad1)
         self.fc2 = nn.Linear(self.hidden1, self.hidden2)
-        self.lif2 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=spike_grad1)
+        self.lif2 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=self.spike_grad1)
         self.fc3 = nn.Linear(self.hidden2, self.hidden3)
-        self.lif3 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=spike_grad1)
+        self.lif3 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=self.spike_grad1)
         self.fc4 = nn.Linear(self.hidden3, self.action_num)
-        self.lif4 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=spike_grad1)
+        self.lif4 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=self.spike_grad1)
 
     def forward(self, x, batch_size):
 

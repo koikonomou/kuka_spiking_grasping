@@ -11,14 +11,14 @@ from training.utility import *
 from training.training_env import GazeboEnvironment
 
 
-def training(run_name="SNN_R1", episode_num=2000,
+def training(run_name="SNN_R1", episode_num=5000,
                 iteration_num_start=200, iteration_num_step=1,
                 iteration_num_max=1000,
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
                 env_epsilon=0.9, env_epsilon_decay=0.999,
                 goal_dis_min=0.1,
-                obs_reward=-20, goal_reward=20, goal_dis_amp=1, goal_th=0.5, obs_th=0.35,
-                state_num=4, action_num=5, spike_state_num=68, batch_window=68, actor_lr=1e-5,
+                obs_reward=-20, goal_reward=20, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
+                state_num=14, action_num=5, spike_state_num=15, batch_window=68, actor_lr=1e-5,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
                 rand_step=2, target_tau=0.01, target_step=1, use_cuda=True):
 
@@ -108,13 +108,11 @@ def training(run_name="SNN_R1", episode_num=2000,
         for ita in range(ita_per_episode):
             ita_time_start = time.time()
             overall_steps += 1
-            # print("spike_state_value", spike_state_value)
             raw_action, raw_snn_action = agent.act(spike_state_value)
             decode_action = network_2_robot_action_decoder(
                 raw_action, j1_max, j1_min, j2_max, j2_min, j3_max, j3_min, j4_max, j4_min, j5_max, j5_min)
             next_state, reward, done = env.step(decode_action)
             spike_nstate_value = snn_state_2_spike_value_state(next_state, spike_state_num)
-
             # Add a last step negative reward
             episode_reward += reward
             agent.remember(state, spike_state_value, raw_action, reward, next_state, spike_nstate_value, done)
@@ -127,13 +125,6 @@ def training(run_name="SNN_R1", episode_num=2000,
                 tb_writer.add_scalar('Spike-snn/actor_loss', actor_loss_value, overall_steps)
                 tb_writer.add_scalar('Spike-snn/critic_loss', critic_loss_value, overall_steps)
             ita_time_end = time.time()
-            # tb_writer.add_scalar('Spike-snn/ita_time', ita_time_end - ita_time_start, overall_steps)
-            # tb_writer.add_scalar('Spike-snn/action_epsilon', agent.epsilon, overall_steps)
-            # tb_writer.add_scalar('Spike-snn/joint_a1', raw_snn_action[0], overall_steps)
-            # tb_writer.add_scalar('Spike-snn/joint_a2', raw_snn_action[1], overall_steps)
-            # tb_writer.add_scalar('Spike-snn/joint_a3', raw_snn_action[2], overall_steps)
-            # tb_writer.add_scalar('Spike-snn/joint_a4', raw_snn_action[3], overall_steps)
-            # tb_writer.add_scalar('Spike-snn/joint_a5', raw_snn_action[4], overall_steps)
 
             # Save Model
             if overall_steps % save_steps == 0:
@@ -167,7 +158,8 @@ def training(run_name="SNN_R1", episode_num=2000,
         env_episode += 1
         if env_episode == episode_num:
             print(" Training Finished ...")
-
+            save_m = agent.save_model("../save_snn_weights",overall_steps // save_steps, run_name)
+            print("SNN model saved to : {}".format(save_m))
             env.reset_environment(overall_init_list)
 
             agent.reset_epsilon(env_epsilon,

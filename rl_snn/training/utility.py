@@ -45,18 +45,16 @@ def snn_state_2_spike_value_state(state, spike_state_num,
     :param goal_dir_range: range of goal dir
     :return: spike_state_value
     """
-    # print("state", len(state))
     spike_state_value = [0 for _ in range(spike_state_num)]
-    if state[0][0] > 0:
-        spike_state_value[0] = state[0][0] / goal_dir_range
+    if state[0] > 0:
+        spike_state_value[0] = state[0]
         spike_state_value[1] = 0
     else:
         spike_state_value[0] = 0
-        spike_state_value[1] = abs(state[0][0]) / goal_dir_range
-    spike_state_value[2:37] = state[1]
-    spike_state_value[37:67] = state[2]
-    spike_state_value[67] = state[3][0]
-    # print ("spike_state_value", len(spike_state_value))
+        spike_state_value[1] = state[0]
+    spike_state_value[2:8] = state[1]
+    spike_state_value[8:14] = state[2]
+    spike_state_value[14] = state[3]
     return spike_state_value
 
 def ddpg_state_rescale(state, spike_state_num,
@@ -76,7 +74,7 @@ def ddpg_state_rescale(state, spike_state_num,
     else:
         rescale_state_value[0] = 0
         rescale_state_value[1] = abs(state[0][0]) / goal_dir_range
-    rescale_state_value[2:37] = state[1]
+    rescale_state_value[2] = state[1]
     rescale_state_value[37:67] = state[2]
     rescale_state_value[67] = state[3][0]
     # print ("rescale_state_value", len(rescale_state_value))
@@ -94,14 +92,15 @@ def ddpg_state_2_spike_value_state(state, spike_state_num,
     # print("state", spike_state_num)
     # print(state)
     spike_state_value = [0 for _ in range(spike_state_num)]
-    if state[0][0] > 0:
-        spike_state_value[0] = state[0][0]
+    if state[0] > 0:
+        spike_state_value[0] = state[0]
         spike_state_value[1] = 0
     else:
         spike_state_value[0] = 0
-        spike_state_value[1] = state[0][0]
-    spike_state_value[2:37] = state[1]
-    spike_state_value[37:67] = state[2]
-    spike_state_value[67] = state[3][0]
+        spike_state_value[1] = state[0]
+    spike_state_value[2:8] = state[1]
+    spike_state_value[8:14] = state[2]
+    spike_state_value[14] = state[3]
+    # print(spike_state_value)
     # print ("spike_state_value", len(spike_state_value))
     return spike_state_value
