@@ -10,8 +10,8 @@ import torch.nn as nn
 import sys
 sys.path.append('../../')
 from training.strain.networks import CriticNet
-# from training.snn_training.networks import ActorNetSpiking
-from training.snn_training.snntorch_net import ActorNetSpiking
+from training.snn_training.networks import ActorNetSpiking
+# from training.snn_training.snntorch_net import ActorNetSpiking
 
 
 class AgentSpiking:
