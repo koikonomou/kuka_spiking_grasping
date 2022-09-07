@@ -12,8 +12,9 @@ class ObjectCollision(object):
 		self.joint_topic = rospy.get_param("joint_topic", "/gazebo/link_states")
 		self.joint_sub = rospy.Subscriber(self.joint_topic, LinkStates, self.callback, queue_size=10)
 		self.pub = rospy.Publisher('/collision_detection', Collision, queue_size=1)
-		self.goal_pos = [0.5,0.0,1.0]
+		self.goal_pos = [0.5, 0.0, 0.85]
 		self.col_msg = Collision()
+		self.camera_box = 0.1
 		while not self.callback_init:
 			continue
 		rospy.loginfo("Finish Subscriber Init...")
@@ -68,12 +69,12 @@ class ObjectCollision(object):
         # rate = rospy.Rate(self.rate)
 		if self.callback_init is False:
 			self.callback_init = True
-		self.pos_j0 = [msg.pose[1].position.x, msg.pose[1].position.y, msg.pose[1].position.z]
-		self.pos_j1 = [msg.pose[2].position.x, msg.pose[2].position.y, msg.pose[2].position.z]
-		self.pos_j2 = [msg.pose[3].position.x, msg.pose[3].position.y, msg.pose[3].position.z]
-		self.pos_j3 = [msg.pose[4].position.x, msg.pose[4].position.y, msg.pose[4].position.z]
-		self.pos_j4 = [msg.pose[5].position.x, msg.pose[5].position.y, msg.pose[5].position.z]
-		self.pos_j5 = [msg.pose[6].position.x, msg.pose[6].position.y, msg.pose[6].position.z]
+		self.pos_j0 = [msg.pose[2].position.x, msg.pose[2].position.y, msg.pose[2].position.z]
+		self.pos_j1 = [msg.pose[3].position.x, msg.pose[3].position.y, msg.pose[3].position.z]
+		self.pos_j2 = [msg.pose[4].position.x, msg.pose[4].position.y, msg.pose[4].position.z]
+		self.pos_j3 = [msg.pose[5].position.x, msg.pose[5].position.y, msg.pose[5].position.z]
+		self.pos_j4 = [msg.pose[6].position.x, msg.pose[6].position.y, msg.pose[6].position.z]
+		self.pos_j5 = [msg.pose[7].position.x, msg.pose[7].position.y, msg.pose[7].position.z]
 
 	def spin(self):
 		rate = rospy.Rate(self.rate)
@@ -86,7 +87,7 @@ class ObjectCollision(object):
 				continue
 			try:
 				# height of the end effector have to be always >0.85 inorder to avoid table collision
-				self.height_endef = self.pos_j5[2]
+				self.height_endef = self.pos_j5[2]+ self.camera_box
 				
 				# calculate joint 3 from link01,link12
 				self.distj3_link1 = self.pnt2line(self.pos_j3, self.pos_j0, self.pos_j1)
@@ -100,21 +101,23 @@ class ObjectCollision(object):
 				actual_dist = np.sqrt(squared_dist)
 				# calculate distance from the end effector to the base
 				self.distj5_link1 = self.pnt2line(self.pos_j5,self.pos_j0,self.pos_j1)
+				# Calculate the actual distance from the end effector to the goal
+				real_dist = np.sqrt((self.goal_pos[0]-self.pos_j5[0])**2+(self.goal_pos[1]-self.pos_j5[1])**2+(self.goal_pos[2]-self.pos_j5[2])**2) - self.camera_box
 
 				""" if end effector is lower than table then it has collide 
 				and the distance will be -100"""
-				if self.height_endef < 0.90:
-					self.col_msg.goal_dist = actual_dist
+				if self.height_endef < 0.95:
+					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
 
-				elif self.distj5_link1 < 0.30:
-					self.col_msg.goal_dist = actual_dist
+				elif self.distj5_link1 < 0.07:
+					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
 
 				else:
-					self.col_msg.goal_dist = actual_dist
+					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 0
 					self.pub.publish(self.col_msg)
 			except ValueError:

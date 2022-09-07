@@ -42,9 +42,11 @@ class Distance(object):
             try:
                 distance = self.dist
                 if math.isnan(distance) == True :
-                    distance = self.actual_dist
+                    distance = 20
                 elif math.isinf(distance) == True:
-                    distance = self.actual_dist
+                    distance = 20
+                elif distance > 0.90 :
+                    distance = 20 
 
                 test= Float64()
                 test.data = distance 

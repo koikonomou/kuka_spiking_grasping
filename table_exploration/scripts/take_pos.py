@@ -10,12 +10,12 @@ class Position(object):
     def __init__(self):
         rospy.init_node('new_init_pose', anonymous = True)
         self.rate = rospy.get_param("rate", 10)
-        self.ja1 = rospy.get_param("joint_a1", 0 * math.pi/180)
-        self.ja2 = rospy.get_param("joint_a2", -50 * math.pi/180)
-        self.ja3 = rospy.get_param("joint_a3", 100 * math.pi/180)
-        self.ja4 = rospy.get_param("joint_a4", 0 * math.pi/180)
-        self.ja5 = rospy.get_param("joint_a5", 35 * math.pi/180)
-        self.ja6 = rospy.get_param("joint_a6", 0 * math.pi/180)
+        self.ja1 = rospy.get_param("joint_a1", 0.0)
+        self.ja2 = rospy.get_param("joint_a2", -1.35)
+        self.ja3 = rospy.get_param("joint_a3", 1.9)
+        self.ja4 = rospy.get_param("joint_a4", 0.0 )
+        self.ja5 = rospy.get_param("joint_a5", 0.61)
+        self.ja6 = rospy.get_param("joint_a6", 0.0)
         self.pub_a1 = rospy.Publisher('/kuka_kr4r600/joint_a1_position_controller/command', Float64, queue_size=10)
         self.pub_a2 = rospy.Publisher('/kuka_kr4r600/joint_a2_position_controller/command', Float64, queue_size=10)
         self.pub_a3 = rospy.Publisher('/kuka_kr4r600/joint_a3_position_controller/command', Float64, queue_size=10)
@@ -38,7 +38,7 @@ class Position(object):
 
 ###### Robot arm full position (a1= 0, a2=-90, a3= 0, a4= 0, a5= 0 , a6= 0) ######
 ###### Robot initial position (a1= 0, a2=-95, a3= 50, a4= 0, a5= 100 , a6= 0) ######
-
+##pose 0, -0.87, 1.74, 0, 0.61, 0
 ###### Robot joint limits in rads (a1= , a2= , a3= , a4= ,a5= 2.09, a6=  ) ######
 
             msg_a1.data = self.ja1
