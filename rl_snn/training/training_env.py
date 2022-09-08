@@ -152,20 +152,6 @@ class GazeboEnvironment:
         # self.pub_a6.publish(move_joint_a6)
         # rospy.sleep(self.step_time)
 
-
-        # if self.pgoal_dist < 0.1 and self.subgoal_achieve==0:
-        #     val = Int32()
-        #     val.data = 1
-        #     self.color_pub.publish(val)
-        #     self.subgoal_achieve = 1
-        #     self.robot_init_pose = self.save_action_pose(action, 1)
-        # if self.pgoal_dist < 0.1 and self.subgoal_achieve==1:
-        #     val = Int32()
-        #     val.data = 2
-        #     self.color_pub.publish(val)
-        #     self.subgoal_achieve = 2
-        #     self.robot_init_pose = self.save_action_pose(action, 1)
-
         next_robot_state = self._get_next_robot_state()
         rospy.wait_for_service('gazebo/pause_physics')
         try:
@@ -191,46 +177,7 @@ class GazeboEnvironment:
 
     def reset(self):
         # self.robot_init_pose_list = init_poslist
-        if self.subgoal_achieve == 0:
-            assert self.robot_init_pose_list is not None
-            rospy.wait_for_service('gazebo/unpause_physics')
-            try:
-                self.unpause_gazebo()
-            except rospy.ServiceException as e:
-                print("Unpause Service Failed: %s" % e)
 
-            self.pub_a1.publish(Float64())
-            self.pub_a2.publish(Float64())
-            self.pub_a3.publish(Float64())
-            self.pub_a4.publish(Float64())
-            self.pub_a5.publish(Float64())
-
-            self.pub_a1.publish(self.robot_init_pose_list[0])
-            self.pub_a2.publish(self.robot_init_pose_list[1])
-            self.pub_a3.publish(self.robot_init_pose_list[2])
-            self.pub_a4.publish(self.robot_init_pose_list[3])
-            self.pub_a5.publish(self.robot_init_pose_list[4])
-            """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
-             'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
-             'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
-            rospy.sleep(2.0)
-            '''
-            Transfer the initial robot state to the state for the Agent
-            '''
-            rob_state = self._get_next_robot_state()
-            rospy.wait_for_service('gazebo/pause_physics')
-            try:
-                self.pause_gazebo()
-            except rospy.ServiceException as e:
-                print("Pause Service Failed: %s" % e)
-            # goal_dis = self._compute_dis_2_goal(rob_state[0])
-            self.subgoal_dist(self.end_effector, self.subgoalslist)
-
-            self.goal_dis_pre = self.pgoal_dist
-            self.goal_dis_cur = self.pgoal_dist
-            self.scan_dist_pre = self.scan_dist
-            self.scan_dist_cur = self.scan_dist
-            state = self._robot_state_2_snn_state(rob_state)
         if self.subgoal_achieve == 1 or self.subgoal_achieve == 2:
             self.go_for2subgoal = 1
             assert self.robot_init_pose is not None
@@ -270,7 +217,53 @@ class GazeboEnvironment:
             self.goal_dis_cur = self.pgoal_dist
             self.scan_dist_pre = self.scan_dist
             self.scan_dist_cur = self.scan_dist
-            state = self._robot_state_2_snn_state(rob_state)            
+            state = self._robot_state_2_snn_state(rob_state)
+        else:
+            self.subgoal_achieve == 0
+            val = Int32()
+            val.data = 0
+            self.color_pub.publish(val)
+            assert self.robot_init_pose_list is not None
+            rospy.wait_for_service('gazebo/unpause_physics')
+            try:
+                self.unpause_gazebo()
+            except rospy.ServiceException as e:
+                print("Unpause Service Failed: %s" % e)
+            # val = Int32()
+            # val.data = 0
+            # self.color_pub.publish(val)
+            self.pub_a1.publish(Float64())
+            self.pub_a2.publish(Float64())
+            self.pub_a3.publish(Float64())
+            self.pub_a4.publish(Float64())
+            self.pub_a5.publish(Float64())
+
+            self.pub_a1.publish(self.robot_init_pose_list[0])
+            self.pub_a2.publish(self.robot_init_pose_list[1])
+            self.pub_a3.publish(self.robot_init_pose_list[2])
+            self.pub_a4.publish(self.robot_init_pose_list[3])
+            self.pub_a5.publish(self.robot_init_pose_list[4])
+            """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
+             'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
+             'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
+            rospy.sleep(2.0)
+            '''
+            Transfer the initial robot state to the state for the Agent
+            '''
+            rob_state = self._get_next_robot_state()
+            rospy.wait_for_service('gazebo/pause_physics')
+            try:
+                self.pause_gazebo()
+            except rospy.ServiceException as e:
+                print("Pause Service Failed: %s" % e)
+            # goal_dis = self._compute_dis_2_goal(rob_state[0])
+            self.subgoal_dist(self.end_effector, self.subgoalslist)
+
+            self.goal_dis_pre = self.pgoal_dist
+            self.goal_dis_cur = self.pgoal_dist
+            self.scan_dist_pre = self.scan_dist
+            self.scan_dist_cur = self.scan_dist
+            state = self._robot_state_2_snn_state(rob_state)
         return state
 
     def reset_environment(self, init_poslist):
@@ -320,54 +313,46 @@ class GazeboEnvironment:
         near_obstacle = False
         goal1=False
         goal2=False
-        goal1_reward = 0
-        goal2_reward = 0
-        reset = False
-        if goal_dis_cur < 0.05 and self.subgoal_achieve==0:
+
+        if goal_dis_cur < 0.1 and self.subgoal_achieve==0:
             val = Int32()
             val.data = 1
             self.color_pub.publish(val)
             goal1 = True
-            goal1_reward = 1
-            print("Achived GOAL 1")
+            print("Achieved GOAL 1")
             self.robot_init_pose = action
             self.subgoal_achieve = 1
-        if goal_dis_cur < 0.05 and self.go_for2subgoal == 1:
+        if goal_dis_cur < 0.1 and self.go_for2subgoal == 1:
             val = Int32()
             val.data = 2
             self.color_pub.publish(val)
             goal2 = True
-            goal1_reward = 1
-            goal2_reward = 1
-            print("Achived GOAL 2")
-            self.subgoal_achieve = 2
+            print("Achieved GOAL 2")
             self.robot_init_pose = action
+            self.subgoal_achieve = 2
+            # val = Int32()
+            # val.data = 0
+            # self.color_pub.publish(val)
+            # print("RESET ")
 
-        # if subgoals[0][0] == end_ef[0] and subgoals[0][1] == end_ef[1] and subgoals[0][2] == end_ef[2]:
-        # elif subgoals[1][0] == end_ef[0] and subgoals[1][1] == end_ef[1] and subgoals[1][2] == end_ef[2]:
-        # else:
-        #     val = Int32()
-        #     val.data = 0
-        #     self.color_pub.publish(val)
-        # First check distance from scanner if scan show that it is near obstacle
-
-        if have_collide_now == 1 :
+        if have_collide_now == 1  and self.scan_dist_cur ==20:
             near_obstacle = True
 
         '''
         Assign Rewards
         '''
-        if goal1 or goal2 or self.actual_dist < 0.10 :
+        if goal1 or goal2 or self.actual_dist < 0.1 :
             reward = self.goal_reward
-            reset = True
             done = True
         elif near_obstacle:
             reward = self.col_reward
             done = True
         else:
-            reward = ((self.goal_dis_amp + goal1_reward + goal2_reward + (found_obj * self.goal_dis_amp))) * math.pow((self.goal_dis_pre-goal_dis_cur),2)
-        if self.subgoal_achieve == 2 and reset:
-            self.robot_init_pose = [0.0, -1.35, 1.9, 0.0, 0.61]
+            reward = ((self.goal_dis_amp + (found_obj * self.goal_dis_amp))) * math.pow((self.goal_dis_pre-goal_dis_cur),2)
+
+        # if self.go_for2subgoal == 1 and self.actual_dist < 0.05:
+        #     self.subgoal_achieve = 0
+
         return reward, done
 
     def _robot_link_cb(self,msg):
@@ -461,8 +446,7 @@ class GazeboEnvironment:
             self.pgoal_dist = np.sqrt((subgoals[1][0]-end_ef[0])**2+(subgoals[1][1]-end_ef[1])**2+(subgoals[1][2]-end_ef[2])**2)
         if self.subgoal_achieve == 2:
             self.pgoal_dist = self.actual_dist
-    def save_action_pose(self,action,save):
-        if save == 1:
-            robot_init_pose = action
-            save = 0
-        return robot_init_pose
+
+    def reset_goal(self):
+        self.subgoal_achieve = 0
+        print("BIG reset")

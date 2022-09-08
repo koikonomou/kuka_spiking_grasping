@@ -11,7 +11,7 @@ from training.utility import *
 from training.training_env import GazeboEnvironment
 
 
-def training(run_name="SNN_R1", episode_num=(400, 500),
+def training(run_name="SNN_R1", episode_num=(100, 200),
                 iteration_num_start=(100, 200), iteration_num_step=(1,2),
                 iteration_num_max=(300,300),
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=1000,
@@ -63,14 +63,14 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
     # Create Folder to save weights
     dirName = 'save_snn_weights'
     try:
-        os.mkdir('../' + dirName)
+        os.mkdir('/home/katerina/' + dirName)
         print("Directory ", dirName, " Created ")
     except FileExistsError:
         print("Directory ", dirName, " already exists")
 
     # Read Random Start Pose and Goal Position based on experiment name
-    overall_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0]] 
-    # [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
+    overall_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0]]
+    # ,[0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
 
     # Define Environment and Agent Object for training
     rospy.init_node("training")
@@ -116,7 +116,6 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
             next_state, reward, done = env.step(decode_action)
             spike_nstate_value = snn_state_2_spike_value_state(next_state, spike_state_num)
             # Add a last step negative reward
-            episode_reward += reward
             agent.remember(state, spike_state_value, raw_action, reward, next_state, spike_nstate_value, done)
             state = next_state
             spike_state_value = spike_nstate_value
@@ -130,7 +129,7 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
 
             # Save Model
             if overall_steps % save_steps == 0:
-                max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("../save_snn_weights",
+                max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("/home/katerina/save_snn_weights",
                                                                           overall_steps // save_steps, run_name)
                 print("Max weights of SNN each layer: ", max_w)
                 print("Min weights of SNN each layer: ", min_w)
@@ -139,6 +138,10 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
                 print("Min bias of SNN each layer: ", min_b)
                 print("Shape of bias: ", shape_b)
 
+            episode_reward += reward
+            if done and reward ==20 and ita == 0:
+                print("END GOAL ")
+                env.reset_goal()
             # If Done then break
             if done or ita == ita_per_episode - 1:
                 print("Episode: {}/{}, Avg Reward: {}, Steps: {}"
@@ -148,7 +151,7 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
         if ita_per_episode < iteration_num_max[env_num]:
             ita_per_episode += iteration_num_step[env_num]
         if overall_episode == 299:
-            max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("../save_snn_weights",
+            max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("/home/katerina/save_snn_weights",
                                                                       0, run_name)
             print("Max weights of SNN each layer: ", max_w)
             print("Min weights of SNN each layer: ", min_w)
@@ -161,7 +164,7 @@ def training(run_name="SNN_R1", episode_num=(400, 500),
         if env_episode == episode_num[env_num]:
             print(" Environment",env_num," Training Finished..")
             if env_num == 1:
-            # save_m = agent.save_model("../save_snn_weights",overall_steps // save_steps, run_name)
+                save_m = agent.save_model("/home/katerina/snn_model", overall_steps // save_steps, run_name)
             # print("SNN model saved to : {}".format(save_m))
                 break
             env_num += 1

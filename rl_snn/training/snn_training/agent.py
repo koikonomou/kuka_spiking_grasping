@@ -295,8 +295,21 @@ class AgentSpiking:
         except FileExistsError:
             print("Directory", save_dir, " already exists")
         self.actor_net.to('cpu')
-        path = save_dir + '/' + run_name + '_snn_model_' + str(episode) + '.pt'
-        torch.save(self.actor_net.state_dict(), path)
+        self.critic_net.to('cpu')
+        self.target_actor_net.to('cpu')
+        self.target_critic_net.to('cpu')
+        
+        path1 = save_dir + '/' + run_name + '_snn_actor_model_' + str(episode) + '.pt'
+        torch.save(self.actor_net, path1)
+        path11 = save_dir + '/' + run_name + '_snn_actor_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_actor_net, path11)
+
+        path2 = save_dir + '/' + run_name + '_snn_critic_model_' + str(episode) + '.pt'
+        torch.save(self.critic_net, path2)
+        path22 = save_dir + '/' + run_name + '_snn_critic_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_critic_net, path22)
+
+
         return path
 
     def _state_2_state_spikes(self, spike_state_value, batch_size):
