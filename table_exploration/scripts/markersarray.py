@@ -33,7 +33,7 @@ class MarkerArrayVis(object):
 		elif msg.data == 1:
 			self.jointa2_color = [0.0,1.0,0.0,1.0]
 			self.jointa3_color = [1.0,0.0,0.0,1.0]
-		elif msg.data == 3:
+		elif msg.data == 2:
 			self.jointa2_color = [0.0,1.0,0.0,1.0]
 			self.jointa3_color = [0.0,1.0,0.0,1.0]
 
