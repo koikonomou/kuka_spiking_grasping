@@ -111,7 +111,7 @@ class ObjectCollision(object):
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
 
-				elif self.distj5_link1 < 0.07:
+				elif self.distj5_link1 < 0.05:
 					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
