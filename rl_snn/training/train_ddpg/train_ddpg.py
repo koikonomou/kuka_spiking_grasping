@@ -12,14 +12,14 @@ from training.training_env import GazeboEnvironment
 from training.utility import *
 
 
-def train_ddpg(run_name="SNN_R1", episode_num=100,
-                iteration_num_start=200, iteration_num_step=1,
-                iteration_num_max=1000,
+def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
+                iteration_num_start=(400, 500, 600, 700), iteration_num_step=(1,2,3,4),
+                iteration_num_max=(1000,1000,1000,1000),
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
-                env_epsilon=0.9, env_epsilon_decay=0.999,
+                env_epsilon=(0.9, 0.6, 0.6, 0.6), env_epsilon_decay=(0.999, 0.9999, 0.9999, 0.9999),
                 goal_dis_min=0.1,
-                obs_reward=-20, goal_reward=10, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
-                state_num=4, action_num=5, is_pos_neg=False, is_poisson=False, poisson_win=50, spike_state_num=68, batch_window=4, actor_lr=1e-5,
+                obs_reward=-20, goal_reward=20, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
+                state_num=14, action_num=5, poisson_win=50, spike_state_num=15, batch_window=4, actor_lr=1e-5,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
                 rand_step=2, target_tau=0.01, target_step=1, use_cuda=True):
     """
@@ -70,18 +70,18 @@ def train_ddpg(run_name="SNN_R1", episode_num=100,
 
     # Define 4 training environments
     # Read Random Start Pose and Goal Position based on experiment name
-    overall_init_list = [0.0,0.0,0.0,0.0,0.0]
+    overall_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0], [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
 
     # Define Environment and Agent Object for training
     rospy.init_node("train_ddpg")
     env = GazeboEnvironment(goal_dis_min=goal_dis_min,
                             col_reward=obs_reward, goal_reward=goal_reward, goal_dis_amp=goal_dis_amp,
                             goal_near_th=goal_th, obs_near_th=obs_th)
-    if is_pos_neg:
-        rescale_state_num = state_num + 2
-    else:
-        rescale_state_num = state_num
-    agent = Agent(state_num, action_num, rescale_state_num, poisson_window=poisson_win, use_poisson=is_poisson,
+    # if is_pos_neg:
+    #     rescale_state_num = state_num + 2
+    # else:
+    rescale_state_num = 68
+    agent = Agent(state_num, action_num, rescale_state_num, poisson_window=poisson_win,
                   memory_size=memory_size, batch_size=batch_size, epsilon_end=epsilon_end,
                   epsilon_rand_decay_start=rand_start, epsilon_decay=rand_decay, epsilon_rand_decay_step=rand_step,
                   target_tau=target_tau, target_update_steps=target_step, use_cuda=use_cuda)
@@ -91,24 +91,26 @@ def train_ddpg(run_name="SNN_R1", episode_num=100,
 
     # Define maximum steps per episode and reset maximum random action
     overall_steps = 0
+    env_num = 0
+
     overall_episode = 0
     env_episode = 0
-    env_ita = 0
-    ita_per_episode = iteration_num_start
+    ita_per_episode = iteration_num_start[env_num]
 
-    env.reset_environment(overall_init_list)
+    env.reset_environment(overall_init_list[env_num])
 
-    agent.reset_epsilon(env_epsilon,
-                        env_epsilon_decay)
+    agent.reset_epsilon(env_epsilon[env_num],
+                        env_epsilon_decay[env_num])
+
 
     # Start Training
     start_time = time.time()
     while True:
-        state = env.reset(env_episode)
-        if is_pos_neg:
-            rescale_state = ddpg_state_2_spike_value_state(state, rescale_state_num)
-        else:
-            rescale_state = ddpg_state_rescale(state, rescale_state_num)
+        state = env.reset(overall_init_list[env_num])
+        # if is_pos_neg:
+        rescale_state = ddpg_state_2_spike_value_state(state, rescale_state_num)
+        # else:
+            # rescale_state = ddpg_state_rescale(state, rescale_state_num)
         episode_reward = 0
         for ita in range(ita_per_episode):
             ita_time_start = time.time()
@@ -117,10 +119,11 @@ def train_ddpg(run_name="SNN_R1", episode_num=100,
             decode_action = network_2_robot_action_decoder(
                 raw_action, j1_max, j1_min, j2_max, j2_min, j3_max, j3_min, j4_max, j4_min, j5_max, j5_min)
             next_state, reward, done = env.step(decode_action)
-            if is_pos_neg:
-                rescale_next_state = ddpg_state_2_spike_value_state(next_state, rescale_state_num)
-            else:
-                rescale_next_state = ddpg_state_rescale(state, rescale_state_num)
+            # if is_pos_neg:
+            rescale_next_state = ddpg_state_2_spike_value_state(next_state, rescale_state_num)
+            # else:
+
+                # rescale_next_state = ddpg_state_rescale(state, rescale_state_num)
 
             # Add a last step negative reward
             episode_reward += reward
@@ -145,22 +148,24 @@ def train_ddpg(run_name="SNN_R1", episode_num=100,
                       .format(overall_episode, episode_num, episode_reward / (ita + 1), ita + 1))
                 tb_writer.add_scalar('DDPG/avg_reward', episode_reward / (ita + 1), overall_steps)
                 break
-        if ita_per_episode < iteration_num_max:
-            ita_per_episode += iteration_num_step
+        if ita_per_episode < iteration_num_max[env_num]:
+            ita_per_episode += iteration_num_step[env_num]
         if overall_episode == 999:
             agent.save("../save_ddpg_weights", 0, run_name)
         overall_episode += 1
         env_episode += 1
-        if env_episode == episode_num[env_ita]:
-            print("Environment ", env_ita, " Training Finished ...")
-            if env_ita == 3:
+        if env_episode == episode_num[env_num]:
+            print(" Environment",env_num," Training Finished..")
+            if env_num == 3:
+            # save_m = agent.save_model("../save_snn_weights",overall_steps // save_steps, run_name)
+            # print("SNN model saved to : {}".format(save_m))
                 break
-            env_ita += 1
-            env.reset_environment(overall_init_list)
+            env_num += 1
+            env.reset_environment(overall_init_list[env_num])
 
-            agent.reset_epsilon(env_epsilon,
-                                env_epsilon_decay)
-            ita_per_episode = iteration_num_start
+            agent.reset_epsilon(env_epsilon[env_num],
+                                env_epsilon_decay[env_num])
+            ita_per_episode = iteration_num_start[env_num]
             env_episode = 0
     end_time = time.time()
     print("Finish Training with time: ", (end_time - start_time) / 60, " Min")
@@ -177,7 +182,7 @@ if __name__ == '__main__':
     USE_CUDA = True
     if args.cuda == 0:
         USE_CUDA = False
-    IS_POS_NEG, IS_POISSON = False, False
-    if args.poisson == 1:
-        IS_POS_NEG, IS_POISSON = True, True
-    train_ddpg(use_cuda=USE_CUDA, is_pos_neg=IS_POS_NEG, is_poisson=IS_POISSON)
+    # IS_POS_NEG, IS_POISSON = False, False
+    # if args.poisson == 1:
+    #     IS_POS_NEG, IS_POISSON = True, True
+    train_ddpg(use_cuda=USE_CUDA)

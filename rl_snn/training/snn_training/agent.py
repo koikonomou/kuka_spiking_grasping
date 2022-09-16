@@ -11,6 +11,7 @@ import sys
 sys.path.append('../../')
 from training.strain.networks import CriticNet
 from training.snn_training.networks import ActorNetSpiking
+# from training.snn_training.snntorch_net import ActorNetSpiking
 
 
 class AgentSpiking:
@@ -108,7 +109,7 @@ class AgentSpiking:
                                          hidden2=actor_net_dim[1],
                                          hidden3=actor_net_dim[2],
                                          batch_window=self.batch_window)
-        self.critic_net = CriticNet(self.spike_state_num-1, self.action_num,
+        self.critic_net = CriticNet(self.state_num, self.action_num,
                                     hidden1=critic_net_dim[0],
                                     hidden2=critic_net_dim[1],
                                     hidden3=critic_net_dim[2])
@@ -117,7 +118,7 @@ class AgentSpiking:
                                                 hidden2=actor_net_dim[1],
                                                 hidden3=actor_net_dim[2],
                                                 batch_window=self.batch_window)
-        self.target_critic_net = CriticNet(self.spike_state_num-1, self.action_num,
+        self.target_critic_net = CriticNet(self.state_num, self.action_num,
                                            hidden1=critic_net_dim[0],
                                            hidden2=critic_net_dim[1],
                                            hidden3=critic_net_dim[2])
@@ -186,12 +187,12 @@ class AgentSpiking:
         """
         state_batch, action_batch, reward_batch, nstate_batch, done_batch, state_spikes_batch, nstate_spikes_batch = self._random_minibatch()
         '''
-        Compuate Target Q Value
+        Compute Target Q Value
         '''
         with torch.no_grad():
             naction_batch = self.target_actor_net(nstate_spikes_batch, self.batch_size)
             next_q = self.target_critic_net([nstate_batch, naction_batch])
-            target_q = reward_batch + self.reward_gamma * next_q * (1. - done_batch)
+            target_q = (reward_batch + self.reward_gamma * next_q * (1. - done_batch))
         '''
         Update Critic Network
         '''
@@ -287,6 +288,30 @@ class AgentSpiking:
         self.actor_net.to(self.device)
         return max_w, min_w, max_bias, min_bias, shape_w, shape_bias
 
+    def save_model(self, save_dir, episode, run_name):
+        try:
+            os.mkdir(save_dir)
+            print("Directory ", save_dir, " Created")
+        except FileExistsError:
+            print("Directory", save_dir, " already exists")
+        self.actor_net.to('cpu')
+        self.critic_net.to('cpu')
+        self.target_actor_net.to('cpu')
+        self.target_critic_net.to('cpu')
+        
+        path1 = save_dir + '/' + run_name + '_snn_actor_model_' + str(episode) + '.pt'
+        torch.save(self.actor_net, path1)
+        path11 = save_dir + '/' + run_name + '_snn_actor_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_actor_net, path11)
+
+        path2 = save_dir + '/' + run_name + '_snn_critic_model_' + str(episode) + '.pt'
+        torch.save(self.critic_net, path2)
+        path22 = save_dir + '/' + run_name + '_snn_critic_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_critic_net, path22)
+
+
+        return path
+
     def _state_2_state_spikes(self, spike_state_value, batch_size):
         """
         Transform state to spikes of input neurons
@@ -299,8 +324,17 @@ class AgentSpiking:
         state_spikes = state_spikes.astype(float)
         return state_spikes
 
-    def flatten(self,xss):
-        return [x for xs in xss for x in xs]
+    def flatten_list(self, _2d_list):
+        flat_list = []
+        # Iterate through the outer list
+        for element in _2d_list:
+            if type(element) is list:
+                # If the element is of type list, iterate through the sublist
+                for item in element:
+                    flat_list.append(item)
+            else:
+                flat_list.append(element)
+        return flat_list
 
     def _random_minibatch(self):
         """
@@ -308,21 +342,21 @@ class AgentSpiking:
         :return: state_batch, action_batch, reward_batch, nstate_batch, done_batch
         """
         minibatch = random.sample(self.memory, self.batch_size)
-        state_batch = np.zeros((self.batch_size, self.spike_state_num-1))
+        state_batch = np.zeros((self.batch_size, self.state_num))
         spike_state_value_batch = np.zeros((self.batch_size, self.spike_state_num))
         action_batch = np.zeros((self.batch_size, self.action_num))
         reward_batch = np.zeros((self.batch_size, 1))
-        nstate_batch = np.zeros((self.batch_size, self.spike_state_num-1))
+        nstate_batch = np.zeros((self.batch_size, self.state_num))
         spike_nstate_value_batch = np.zeros((self.batch_size, self.spike_state_num))
         done_batch = np.zeros((self.batch_size, 1))
         for num in range(self.batch_size):
-            minibatch1 = self.flatten(minibatch[num][0])
+            minibatch1 = self.flatten_list(minibatch[num][0])
             state_batch[num, :] = np.array(minibatch1)
             spike_state_value_batch[num, :] = np.array(minibatch[num][1])
             minibatch3 = minibatch[num][2]
             action_batch[num, :] = np.array(minibatch3)
             reward_batch[num, 0] = minibatch[num][3]
-            minibatch5 = self.flatten(minibatch[num][4])
+            minibatch5 = self.flatten_list(minibatch[num][4])
             nstate_batch[num, :] = np.array(minibatch5)
             spike_nstate_value_batch[num, :] = np.array(minibatch[num][5])
             done_batch[num, 0] = minibatch[num][6]

@@ -17,7 +17,8 @@ find_package(cmake_modules REQUIRED)
 
 
 add_message_files(FILES 
-	Distance.msg)
+	Distance.msg
+	Collision.msg)
 
 generate_messages(
   DEPENDENCIES
