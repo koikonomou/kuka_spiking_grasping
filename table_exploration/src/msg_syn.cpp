@@ -28,7 +28,6 @@ void callback(const Distance::ConstPtr& scan_pub1, const Collision::ConstPtr& co
   scan_pub.publish(scan_pub1);
   col_pub.publish(col_pub1);
   camera_pub.publish(camera_pub1);
-  // marker_pub.publish(marker_pub1);
   joint_states_pub.publish(joint_states_pub1);
 
 }
@@ -40,7 +39,6 @@ int main(int argc, char** argv)
   std::string scan_topic = "/kuka/collision";
   std::string col_topic = "/collision_detection";
   std::string camera_topic = "/kuka/box/distance";
-  // std::string marker_topic = "/markers";
   std::string joint_states_topic = "/joint_states";
 
 
@@ -48,18 +46,16 @@ int main(int argc, char** argv)
   message_filters::Subscriber<Distance> scan_sub(nh, scan_topic, 100);
   message_filters::Subscriber<Collision> col_sub(nh, col_topic, 100);
   message_filters::Subscriber<Distance> camera_sub(nh, camera_topic, 100);
-  // message_filters::Subscriber<MarkerArray> marker_sub(nh, marker_topic, 100);
   message_filters::Subscriber<JointState> joint_state_sub(nh, joint_states_topic, 100);
 
   scan_pub = nh.advertise<table_exploration::Distance>("/synchronized" + scan_topic, 1000);
   col_pub = nh.advertise<table_exploration::Collision>("/synchronized" + col_topic, 1000);
   camera_pub = nh.advertise<table_exploration::Distance>("/synchronized" + camera_topic, 1000);
-  // marker_pub = nh.advertise<visualization_msgs::MarkerArray>("/synchronized" + marker_topic, 1000);
   joint_states_pub = nh.advertise<sensor_msgs::JointState>("/synchronized" + joint_states_topic, 1000);
 
 
 
-  typedef sync_policies::ApproximateTime<Distance, Collision, Distance,  JointState> MySyncPolicy;
+  typedef sync_policies::ApproximateTime<Distance, Collision, Distance, JointState> MySyncPolicy;
   // ApproximateTime takes a queue size as its constructor argument, hence MySyncPolicy(10)
   Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), scan_sub, col_sub, camera_sub, joint_state_sub);
   sync.registerCallback(boost::bind(&callback, _1, _2, _3, _4));
