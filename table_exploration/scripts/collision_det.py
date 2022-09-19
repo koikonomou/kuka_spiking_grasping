@@ -1,5 +1,6 @@
 import math
 import rospy
+import time
 import numpy as np
 from gazebo_msgs.msg import LinkStates
 from table_exploration.msg import Collision
@@ -15,6 +16,7 @@ class ObjectCollision(object):
 		self.goal_pos = [0.5, 0.0, 0.85]
 		self.col_msg = Collision()
 		self.camera_box = 0.1
+		# self.stamp = 0 
 		while not self.callback_init:
 			continue
 		rospy.loginfo("Finish Subscriber Init...")
@@ -75,6 +77,7 @@ class ObjectCollision(object):
 		self.pos_j3 = [msg.pose[5].position.x, msg.pose[5].position.y, msg.pose[5].position.z]
 		self.pos_j4 = [msg.pose[6].position.x, msg.pose[6].position.y, msg.pose[6].position.z]
 		self.pos_j5 = [msg.pose[7].position.x, msg.pose[7].position.y, msg.pose[7].position.z]
+		self.stamp = rospy.get_rostime()
 
 	def spin(self):
 		rate = rospy.Rate(self.rate)
@@ -107,16 +110,19 @@ class ObjectCollision(object):
 				""" if end effector is lower than table then it has collide 
 				and the distance will be -100"""
 				if self.height_endef < 0.95:
+					self.col_msg.header.stamp = self.stamp
 					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
 
 				elif self.distj5_link1 < 0.05:
+					self.col_msg.header.stamp = self.stamp
 					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 1
 					self.pub.publish(self.col_msg)
 
 				else:
+					self.col_msg.header.stamp = self.stamp
 					self.col_msg.goal_dist = real_dist
 					self.col_msg.have_collide = 0
 					self.pub.publish(self.col_msg)

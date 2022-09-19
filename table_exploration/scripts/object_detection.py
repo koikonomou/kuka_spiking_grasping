@@ -106,14 +106,14 @@ class CascadeBoxDetector(object):
                     rospy.logwarn_throttle(2, "Cascade failed to detect object ")
                     msg = Distance()
                     msg.data = -10
-                    msg.stamp = self.stamp
+                    msg.header.stamp = self.stamp
                     msg.havered = 0
                     self.dist_pub.publish(msg)
                 elif not len(detections) and not redinim[1] == 0:
                     rospy.logwarn_throttle(2, " Cascade failed to detect object but red color detected in image ")
                     msg = Distance()
                     msg.data = 0
-                    msg.stamp = self.stamp
+                    msg.header.stamp = self.stamp
                     msg.havered = 1
                     self.dist_pub.publish(msg)
                 else:
@@ -128,7 +128,7 @@ class CascadeBoxDetector(object):
                         rospy.logwarn_throttle(2, "Nothing red on frame")
                         msg = Distance()
                         msg.data = -10
-                        msg.stamp = self.stamp
+                        msg.header.stamp = self.stamp
                         msg.havered = 0
                         self.dist_pub.publish(msg)
                     else:
@@ -141,7 +141,7 @@ class CascadeBoxDetector(object):
 
                         msg = Distance()
                         # msg.data = distance_est
-                        msg.stamp = self.stamp
+                        msg.header.stamp = self.stamp
                         msg.havered = 1
 
                         self.dist_pub.publish(msg)

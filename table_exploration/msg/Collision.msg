@@ -1,3 +1,3 @@
-time stamp
+Header header
 float64 goal_dist
 int64 have_collide
