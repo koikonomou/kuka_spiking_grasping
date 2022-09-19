@@ -27,10 +27,10 @@ class GazeboEnvironment:
         2. Step: Execute new action and return state
      """
     def __init__(self,
-                 goal_reward=10,
-                 col_reward=-20,
-                 goal_dis_amp=5,
-                 step_time=0.1):
+                 goal_reward = 20,
+                 col_reward = -20,
+                 goal_dis_amp = 5,
+                 step_time = 0.1):
         """
         :param goal_dis_min: minimal distance of goal distance
         :param goal_dis_scale: goal distance scale
@@ -74,11 +74,11 @@ class GazeboEnvironment:
         # Subscriber
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         rospy.Subscriber('/gazebo/link_states', LinkStates, self._robot_link_cb )
-        rospy.Subscriber('/kuka/collision', Float64, self.scan_dist_cb)
-        rospy.Subscriber('/kuka/box/distance', Distance, self.camera_cb )
-        rospy.Subscriber('/collision_detection', Collision, self.collision_cb)
+        rospy.Subscriber('/synchronized/kuka/collision', Distance, self.scan_dist_cb)
+        rospy.Subscriber('/synchronized/kuka/box/distance', Distance, self.camera_cb )
+        rospy.Subscriber('/synchronized/collision_detection', Collision, self.collision_cb)
         rospy.Subscriber('/markers', MarkerArray, self.marker_cb)
-        rospy.Subscriber('/joint_states', JointState, self.joint_state_cb)
+        rospy.Subscriber('/synchronized/joint_states', JointState, self.joint_state_cb)
         """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
          'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
          'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
@@ -201,7 +201,7 @@ class GazeboEnvironment:
             """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
              'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
              'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
-            rospy.sleep(2.0)
+            rospy.sleep(1.5)
             '''
             Transfer the initial robot state to the state for the Agent
             '''
@@ -246,7 +246,7 @@ class GazeboEnvironment:
             """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
              'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
              'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
-            rospy.sleep(2.0)
+            rospy.sleep(1.5)
             '''
             Transfer the initial robot state to the state for the Agent
             '''
@@ -335,21 +335,22 @@ class GazeboEnvironment:
             # self.color_pub.publish(val)
             # print("RESET ")
 
-        if have_collide_now == 1  and self.scan_dist_cur ==20:
+        if have_collide_now == 1 :
             near_obstacle = True
 
         '''
         Assign Rewards
         '''
-        if goal1 or goal2 or self.actual_dist < 0.1 :
+        if goal_dis_cur < 0.1 :
             reward = self.goal_reward
             done = True
         elif near_obstacle:
             reward = self.col_reward
             done = True
         else:
-            reward = ((self.goal_dis_amp + (found_obj * self.goal_dis_amp))) * math.pow((self.goal_dis_pre-goal_dis_cur),2)
-
+            # reward = (-goal_dis_cur*math.pow(math.e,(math.pow((self.goal_dis_pre-goal_dis_cur),2)))-goal_dis_cur)/self.scan_dist_cur
+            # reward = (math.pow((self.goal_dis_pre-goal_dis_cur),2))+(1/self.scan_dist_cur)
+            reward = (math.pow(math.e,math.pow((goal_dis_cur-self.goal_dis_pre),2))+self.scan_dist_cur*goal_dis_cur)
         # if self.go_for2subgoal == 1 and self.actual_dist < 0.05:
         #     self.subgoal_achieve = 0
 
@@ -433,7 +434,6 @@ class GazeboEnvironment:
         self.subgoals_list = [subgoal_a, subgoal_b]
 
     def reset_marker(self, savemarker, resetmarker):
-
         if resetmarker == 1:
             subgoals = savemarker
             resetmarker = 0
@@ -449,4 +449,3 @@ class GazeboEnvironment:
 
     def reset_goal(self):
         self.subgoal_achieve = 0
-        print("BIG reset")

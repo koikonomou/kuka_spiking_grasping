@@ -12,15 +12,14 @@ from training.training_env import GazeboEnvironment
 
 
 def training(run_name="SNN_R1", episode_num=(100, 200),
-                iteration_num_start=(100, 200), iteration_num_step=(1,2),
+                iteration_num_start=(200, 300), iteration_num_step=(1,2),
                 iteration_num_max=(300,300),
-                j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=1000,
+                j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
                 env_epsilon=(0.9, 0.6), env_epsilon_decay=(0.999, 0.9999),
-                goal_dis_min=0.1,
-                obs_reward=-20, goal_reward=20, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
-                state_num=14, action_num=5, spike_state_num=14, batch_window=68, actor_lr=1e-2,
-                memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=1000, rand_decay=0.999,
-                rand_step=2, target_tau=0.06, target_step=1, use_cuda=True):
+                obs_reward=-20, goal_reward= 30, goal_dis_amp=15,
+                state_num=14, action_num=5, spike_state_num=14, batch_window=6 , actor_lr=1e-4,
+                memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
+                rand_step=2, target_tau=0.005, target_step=1, use_cuda=True):
 
     """
     Training Spiking snn for Mapless Navigation
@@ -105,7 +104,10 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
     start_time = time.time()
     while True:
         state = env.reset()
-        spike_state_value = snn_state_2_spike_value_state(state, spike_state_num)
+        state = snn_state_2_spike_value_state(state, spike_state_num)
+        state = np.array(state).reshape((-1))
+        spike_state_value = agent._state_2_state_spikes(state,1)
+
         episode_reward = 0
         for ita in range(ita_per_episode):
             ita_time_start = time.time()
@@ -114,7 +116,12 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
             decode_action = network_2_robot_action_decoder(
                 raw_action, j1_max, j1_min, j2_max, j2_min, j3_max, j3_min, j4_max, j4_min, j5_max, j5_min)
             next_state, reward, done = env.step(decode_action)
-            spike_nstate_value = snn_state_2_spike_value_state(next_state, spike_state_num)
+            next_state = snn_state_2_spike_value_state(next_state, spike_state_num)
+            next_state = np.array(next_state).reshape((-1))
+            spike_nstate_value = agent._state_2_state_spikes(next_state,1)
+            # spike_nstate_value = np.array(spike_nstate_value).reshape((1, -1))
+
+
             # Add a last step negative reward
             agent.remember(state, spike_state_value, raw_action, reward, next_state, spike_nstate_value, done)
             state = next_state
@@ -137,11 +144,15 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
                 print("Max bias of SNN each layer: ", max_b)
                 print("Min bias of SNN each layer: ", min_b)
                 print("Shape of bias: ", shape_b)
-
+                print("Saved at:/home/katerina/save_snn_weights", overall_steps // save_steps, run_name)
             episode_reward += reward
-            if done and reward ==20 and ita == 0:
-                print("END GOAL ")
+            if done and reward == goal_reward and ita == 0:
+                print("GOAL RESET ")
                 env.reset_goal()
+            if done and reward == obs_reward and ita == 0:
+                env.reset_environment(overall_init_list[env_num])
+                print("COLLISION RESET")
+
             # If Done then break
             if done or ita == ita_per_episode - 1:
                 print("Episode: {}/{}, Avg Reward: {}, Steps: {}"
@@ -165,7 +176,7 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
             print(" Environment",env_num," Training Finished..")
             if env_num == 1:
                 save_m = agent.save_model("/home/katerina/snn_model", overall_steps // save_steps, run_name)
-            # print("SNN model saved to : {}".format(save_m))
+                print("SNN model saved to : {}".format(save_m))
                 break
             env_num += 1
             env.reset_environment(overall_init_list[env_num])

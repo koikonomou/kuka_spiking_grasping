@@ -8,6 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import sys
+from datetime import datetime
 sys.path.append('../../')
 from training.strain.networks import CriticNet
 from training.snn_training.networks import ActorNetSpiking
@@ -33,13 +34,13 @@ class AgentSpiking:
                  spike_state_num,
                  actor_net_dim=(256, 256, 256),
                  critic_net_dim=(512, 512, 512),
-                 batch_window=50,
+                 batch_window=60,
                  memory_size=1000,
                  batch_size=420,
                  target_tau=0.01,
                  target_update_steps=5,
                  reward_gamma=0.99,
-                 actor_lr=0.0001,
+                 actor_lr=0.001,
                  critic_lr=0.0001,
                  epsilon_start=0.9,
                  epsilon_end=0.01,
@@ -161,9 +162,9 @@ class AgentSpiking:
         :return: action
         """
         with torch.no_grad():
-            state = np.array(state).reshape((1, -1))
-            state_spikes = self._state_2_state_spikes(state, 1)
-            state_spikes = torch.Tensor(state_spikes).to(self.device)
+            # state = np.array(state).reshape((1, -1))
+            # state_spikes = self._state_2_state_spikes(state, 1)
+            state_spikes = torch.Tensor(state).to(self.device)
             action = self.actor_net(state_spikes, 1).to('cpu')
             action = action.numpy().squeeze()
             raw_snn_action = copy.deepcopy(action)
@@ -252,9 +253,9 @@ class AgentSpiking:
         l4_weights = self.actor_net.fc4.weight.data.numpy()
         l4_bias = self.actor_net.fc4.bias.data.numpy()
         pickle.dump([l1_weights, l2_weights, l3_weights, l4_weights],
-                    open(save_dir + '/' + run_name + '_snn_weights_s' + str(episode) + '.p', 'wb+'))
+                    open(save_dir + '/' + datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + '_snn_weights_s' + str(episode) + '.p', 'wb+'))
         pickle.dump([l1_bias, l2_bias, l3_bias, l4_bias],
-                    open(save_dir + '/' + run_name + '_snn_bias_s' + str(episode) + '.p', 'wb+'))
+                    open(save_dir + '/' + datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + '_snn_bias_s' + str(episode) + '.p', 'wb+'))
         l1_max = np.amax(l1_weights)
         l1_min = np.amin(l1_weights)
         l1_shape = l1_weights.shape
@@ -298,7 +299,7 @@ class AgentSpiking:
         self.critic_net.to('cpu')
         self.target_actor_net.to('cpu')
         self.target_critic_net.to('cpu')
-        
+
         path1 = save_dir + '/' + run_name + '_snn_actor_model_' + str(episode) + '.pt'
         torch.save(self.actor_net, path1)
         path11 = save_dir + '/' + run_name + '_snn_actor_target_model_' + str(episode) + '.pt'
@@ -308,11 +309,10 @@ class AgentSpiking:
         torch.save(self.critic_net, path2)
         path22 = save_dir + '/' + run_name + '_snn_critic_target_model_' + str(episode) + '.pt'
         torch.save(self.target_critic_net, path22)
+        return path1
 
 
-        return path
-
-    def _state_2_state_spikes(self, spike_state_value, batch_size):
+    def _state_2_state_spikes(self, spike_state_value,batch_size):
         """
         Transform state to spikes of input neurons
         :param spike_state_value: state from environment transfer to firing rates of neurons
@@ -343,25 +343,23 @@ class AgentSpiking:
         """
         minibatch = random.sample(self.memory, self.batch_size)
         state_batch = np.zeros((self.batch_size, self.state_num))
-        spike_state_value_batch = np.zeros((self.batch_size, self.spike_state_num))
+        state_spikes_batch = np.zeros((self.batch_size, self.spike_state_num,5))
         action_batch = np.zeros((self.batch_size, self.action_num))
         reward_batch = np.zeros((self.batch_size, 1))
         nstate_batch = np.zeros((self.batch_size, self.state_num))
-        spike_nstate_value_batch = np.zeros((self.batch_size, self.spike_state_num))
+        nstate_spikes_batch = np.zeros((self.batch_size, self.spike_state_num,5))
         done_batch = np.zeros((self.batch_size, 1))
         for num in range(self.batch_size):
-            minibatch1 = self.flatten_list(minibatch[num][0])
-            state_batch[num, :] = np.array(minibatch1)
-            spike_state_value_batch[num, :] = np.array(minibatch[num][1])
-            minibatch3 = minibatch[num][2]
-            action_batch[num, :] = np.array(minibatch3)
+            # print("MINIBATCH", minibatch)
+            state_batch[num, :] = np.array(minibatch[num][0])
+            state_spikes_batch[num, :] = np.array(minibatch[num][1])
+            action_batch[num, :] = np.array(minibatch[num][2])
             reward_batch[num, 0] = minibatch[num][3]
-            minibatch5 = self.flatten_list(minibatch[num][4])
-            nstate_batch[num, :] = np.array(minibatch5)
-            spike_nstate_value_batch[num, :] = np.array(minibatch[num][5])
+            nstate_batch[num, :] = np.array(minibatch[num][4])
+            nstate_spikes_batch[num, :] = np.array(minibatch[num][5])
             done_batch[num, 0] = minibatch[num][6]
-        state_spikes_batch = self._state_2_state_spikes(spike_state_value_batch, self.batch_size)
-        nstate_spikes_batch = self._state_2_state_spikes(spike_nstate_value_batch, self.batch_size)
+        # state_spikes_batch = self._state_2_state_spikes(spike_state_value_batch, self.batch_size)
+        # nstate_spikes_batch = self._state_2_state_spikes(spike_nstate_value_batch, self.batch_size)
         state_batch = torch.Tensor(state_batch).to(self.device)
         action_batch = torch.Tensor(action_batch).to(self.device)
         reward_batch = torch.Tensor(reward_batch).to(self.device)
