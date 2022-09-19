@@ -108,7 +108,7 @@ class RandEvalGpu:
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         # rospy.Subscriber('simplescan', SimpleScan, self._robot_scan_cb)
         # rospy.Subscriber('/gazebo/link_states', LinkStates, self._robot_link_cb )
-        rospy.Subscriber('/kuka/collision', Float64, self.scan_dist_cb)
+        rospy.Subscriber('/kuka/collision', Distance, self.scan_dist_cb)
         rospy.Subscriber('/kuka/box/distance', Distance, self.camera_cb )
         rospy.Subscriber('/collision_detection', Collision, self.collision_cb)
         rospy.Subscriber('/joint_states', JointState, self.joint_state_cb)
