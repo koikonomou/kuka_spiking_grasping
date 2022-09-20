@@ -6,7 +6,9 @@ import numpy as np
 from std_srvs.srv import Empty
 from std_msgs.msg import Float64
 from shapely.geometry import Point
+from sensor_msgs.msg import JointState
 from table_exploration.msg import Distance
+from table_exploration.msg import Collision
 from gazebo_msgs.srv import SetModelState
 from gazebo_msgs.srv import SetLinkState
 from gazebo_msgs.msg import LinkStates, LinkState , ModelState
@@ -68,10 +70,10 @@ class GazeboEnvironment:
         # Subscriber
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         rospy.Subscriber('/gazebo/link_states', LinkStates, self._robot_link_cb )
-        rospy.Subscriber('/kuka/collision', Float64, self.scan_dist_cb)
-        rospy.Subscriber('/kuka/box/distance', Distance, self.camera_cb )
-        rospy.Subscriber('/collision_detection', Collision, self.collision_cb)
-        rospy.Subscriber('/joint_states', JointState, self.joint_state_cb)
+        rospy.Subscriber('/synchronized/kuka/collision', Distance, self.scan_dist_cb)
+        rospy.Subscriber('/synchronized/kuka/box/distance', Distance, self.camera_cb )
+        rospy.Subscriber('/synchronized/collision_detection', Collision, self.collision_cb)
+        rospy.Subscriber('/synchronized/joint_states', JointState, self.joint_state_cb)
         """ ROBOT LINK NAMES: ['ground_plane::link', 'kuka_kr4r600::table_top_link',
          'kuka_kr4r600::link_1', 'kuka_kr4r600::link_2','kuka_kr4r600::link_3', 
          'kuka_kr4r600::link_4', 'kuka_kr4r600::link_5', 'kuka_kr4r600::link_6'] """
@@ -93,11 +95,13 @@ class GazeboEnvironment:
         # Init Subscriber
         while not self.robot_state_init:
             continue
-        while not self.robot_distance_init:
+        while not self.camera_cb_init:
             continue
-        while not self.collision_dist_init:
+        while not self.scan_dist_init:
             continue
         while not self.collision_init:
+            continue
+        while not self.robot_joint_state_init:
             continue
         rospy.loginfo("Finish Subscriber Init...")
 
@@ -262,13 +266,13 @@ class GazeboEnvironment:
         if near_obstacle:
             reward = self.col_reward
             done = True
-        elif goal_dis_cur < 0.1:
+        elif self.goal_dis_cur < 0.1:
             reward = self.goal_reward
             done = True
         else:
-            # reward = self.goal_dis_amp * (self.goal_dis_pre - self.goal_dis_cur)
-            reward = ((self.goal_dis_pre-goal_dis_cur)*(self.goal_dis_amp + (found_obj * self.goal_dis_amp)))/goal_dis_cur
-            # reward = (-goal_dis_cur*math.pow(math.e,(- math.pow((self.goal_dis_pre-goal_dis_cur),2)))-goal_dis_cur)
+            # reward = self.goal_dis_amp * (self.goal_dis_pre - self.self.goal_dis_cur)
+            reward = ((self.goal_dis_pre-self.goal_dis_cur)*(self.goal_dis_amp + (found_obj * self.goal_dis_amp)))/self.goal_dis_cur
+            # reward = (-self.goal_dis_cur*math.pow(math.e,(- math.pow((self.goal_dis_pre-self.goal_dis_cur),2)))-self.goal_dis_cur)
 
         return reward, done
 
