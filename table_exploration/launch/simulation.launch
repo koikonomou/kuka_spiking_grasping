@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<launch>
+    <node pkg="table_exploration" type="collision_distance.py" respawn="false" name="scan_collision" output="screen"/>
+    <node pkg="table_exploration" type="collision_det.py" respawn="false" name="collision_detection" output="screen"/>
+    <node pkg="table_exploration" type="object_detection.py" respawn="false" name="cascade_box_detector" output="screen"/>
+    <node pkg="table_exploration" type="msg_syn" respawn="false" name="msg_syn" output="screen"/>
+</launch>
