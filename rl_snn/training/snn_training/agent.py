@@ -32,6 +32,8 @@ class AgentSpiking:
                  state_num,
                  action_num,
                  spike_state_num,
+                 actor_path,
+                 critic_path,
                  actor_net_dim=(256, 256, 256),
                  critic_net_dim=(512, 512, 512),
                  batch_window=60,
@@ -47,7 +49,9 @@ class AgentSpiking:
                  epsilon_decay=0.999,
                  epsilon_rand_decay_start=60000,
                  epsilon_rand_decay_step=1,
-                 use_cuda=True):
+                 use_cuda=True,
+                 load_model=False
+                 ):
         """
 
         :param state_num: number of state
@@ -87,6 +91,9 @@ class AgentSpiking:
         self.epsilon_rand_decay_start = epsilon_rand_decay_start
         self.epsilon_rand_decay_step = epsilon_rand_decay_step
         self.use_cuda = use_cuda
+        self.load_model = load_model
+        self.actor_path = actor_path
+        self.critic_path = critic_path
         '''
         Random Action
         '''
@@ -123,8 +130,13 @@ class AgentSpiking:
                                            hidden1=critic_net_dim[0],
                                            hidden2=critic_net_dim[1],
                                            hidden3=critic_net_dim[2])
-        self._hard_update(self.target_actor_net, self.actor_net)
-        self._hard_update(self.target_critic_net, self.critic_net)
+        if self.load_model:
+            print("Loaded pretrained model")
+            self.actor_net = torch.load(self.actor_path)
+            self.critic_net = torch.load(self.critic_path)
+        else:
+            self._hard_update(self.target_actor_net, self.actor_net)
+            self._hard_update(self.target_critic_net, self.critic_net)
         self.actor_net.to(self.device)
         self.critic_net.to(self.device)
         self.target_actor_net.to(self.device)
