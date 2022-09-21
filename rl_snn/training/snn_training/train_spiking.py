@@ -4,22 +4,23 @@ import pickle
 import os
 from torch.utils.tensorboard import SummaryWriter
 import sys
-
+from datetime import datetime
 sys.path.append('../../')
 from training.snn_training.agent import AgentSpiking
 from training.utility import *
 from training.training_env import GazeboEnvironment
 
 
-def training(run_name="SNN_R1", episode_num=(100, 200),
-                iteration_num_start=(200, 300), iteration_num_step=(1,2),
-                iteration_num_max=(300,300),
+def training(run_name="SNN_R1", episode_num=(200, 400),
+                iteration_num_start=(50, 50), iteration_num_step=(1,2),
+                iteration_num_max=(100,100),
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
                 env_epsilon=(0.9, 0.6), env_epsilon_decay=(0.999, 0.9999),
-                obs_reward=-20, goal_reward= 30, goal_dis_amp=15,
+                obs_reward=-20, goal_reward= 30, goal_dis_amp=2,
                 state_num=14, action_num=5, spike_state_num=14, batch_window=6 , actor_lr=1e-4,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
-                rand_step=2, target_tau=0.005, target_step=1, use_cuda=True):
+                rand_step=2, target_tau=0.005, target_step=1, use_cuda=True, load_model= True, 
+                actor_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_actor_model_4.pt", critic_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_critic_model_4.pt"):
 
     """
     Training Spiking snn for Mapless Navigation
@@ -83,7 +84,9 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
                          memory_size=memory_size, batch_size=batch_size, epsilon_end=epsilon_end,
                          epsilon_rand_decay_start=rand_start, epsilon_decay=rand_decay,
                          epsilon_rand_decay_step=rand_step,
-                         target_tau=target_tau, target_update_steps=target_step, use_cuda=use_cuda)
+                         target_tau=target_tau, target_update_steps=target_step, use_cuda=use_cuda,
+                         actor_path=actor_path, critic_path=critic_path, load_model=load_model)
+
 
     # Define Tensorboard Writer
     tb_writer = SummaryWriter()
@@ -175,7 +178,7 @@ def training(run_name="SNN_R1", episode_num=(100, 200),
         if env_episode == episode_num[env_num]:
             print(" Environment",env_num," Training Finished..")
             if env_num == 1:
-                save_m = agent.save_model("/home/katerina/snn_model", overall_steps // save_steps, run_name)
+                save_m = agent.save_model("/home/katerina/snn_model", overall_steps // save_steps, datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p"))
                 print("SNN model saved to : {}".format(save_m))
                 break
             env_num += 1
