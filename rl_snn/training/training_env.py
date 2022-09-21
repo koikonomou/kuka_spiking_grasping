@@ -170,7 +170,7 @@ class GazeboEnvironment:
         have_collide_now = self.have_collide
         found_obj = self.found_obj
         state = self._robot_state_2_snn_state(next_robot_state)
-        reward, done = self._compute_reward(have_collide_now, found_obj, self.goal_dis_cur, self.subgoalslist, self.end_effector, next_robot_state[0])
+        reward, done = self._compute_reward(have_collide_now, next_robot_state[0])
         self.goal_dis_pre = self.goal_dis_cur
         self.scan_dist_pre = self.scan_dist_cur
         return state, reward, done
@@ -308,13 +308,13 @@ class GazeboEnvironment:
         snn_state = [self.goal_dis_cur, state[0], state[1], state[2]]
         return snn_state
 
-    def _compute_reward(self, have_collide_now, found_obj, goal_dis_cur, subgoals, end_ef, action):
+    def _compute_reward(self, have_collide_now, action):
         done = False
         near_obstacle = False
         goal1=False
         goal2=False
 
-        if goal_dis_cur < 0.1 and self.subgoal_achieve==0:
+        if self.goal_dis_cur < 0.1 and self.subgoal_achieve==0:
             val = Int32()
             val.data = 1
             self.color_pub.publish(val)
@@ -322,7 +322,7 @@ class GazeboEnvironment:
             print("Achieved GOAL 1")
             self.robot_init_pose = action
             self.subgoal_achieve = 1
-        if goal_dis_cur < 0.1 and self.go_for2subgoal == 1:
+        if self.goal_dis_cur < 0.1 and self.go_for2subgoal == 1:
             val = Int32()
             val.data = 2
             self.color_pub.publish(val)
@@ -341,16 +341,17 @@ class GazeboEnvironment:
         '''
         Assign Rewards
         '''
-        if goal_dis_cur < 0.1 :
+        if self.goal_dis_cur < 0.1 :
             reward = self.goal_reward
             done = True
         elif near_obstacle:
             reward = self.col_reward
             done = True
         else:
+            reward = self.goal_dis_amp*( math.pow((self.goal_dis_pre - self.goal_dis_cur),2))/(self.scan_dist_cur*self.goal_dis_cur)
             # reward = (-goal_dis_cur*math.pow(math.e,(math.pow((self.goal_dis_pre-goal_dis_cur),2)))-goal_dis_cur)/self.scan_dist_cur
             # reward = (math.pow((self.goal_dis_pre-goal_dis_cur),2))+(1/self.scan_dist_cur)
-            reward = (math.pow(math.e,math.pow((goal_dis_cur-self.goal_dis_pre),2))+self.scan_dist_cur*goal_dis_cur)
+            # reward = (math.pow(math.e,math.pow((goal_dis_cur-self.goal_dis_pre),2))+self.scan_dist_cur*goal_dis_cur)
         # if self.go_for2subgoal == 1 and self.actual_dist < 0.05:
         #     self.subgoal_achieve = 0
 
