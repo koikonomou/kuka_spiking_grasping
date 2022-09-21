@@ -1,12 +1,12 @@
+import pickle
 import rospy
 import sys
 sys.path.append('../../')
 from eval_simulation import RandEvalGpu
 from utility import *
 
-
 def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='/home/katerina/save_snn_weights/',
-                   batch_window=5, is_save_result=False, use_cuda=True):
+                   batch_window=5, is_save_result=True, use_cuda=True):
     """
     Evaluate Spiking DDPG in Simulated Environment
     :param pos_start: Start index position for evaluation
@@ -20,10 +20,10 @@ def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='
     rospy.init_node('sddpg_eval')
     # poly_list, raw_poly_list = gen_test_env_poly_list_env()
     start_goal_pos = [0.0, -1.35, 1.9, 0.0, 0.61]
-    robot_init_list = [0.0, -1.35, 1.9, 0.0, 0.61]
+    robot_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0],[0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
     goal_list = [0.5, 0.0, 0.85]
-    w_dir = save_dir + 'SNN_R1_snn_weights_s50.p'
-    b_dir = save_dir + 'SNN_R1_snn_bias_s50.p'
+    w_dir = save_dir + '2022_09_21-03_36_25_PM_snn_weights_s4.p'
+    b_dir = save_dir + '2022_09_21-03_36_25_PM_snn_bias_s4.p'
     if use_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
