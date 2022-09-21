@@ -39,7 +39,7 @@ class RandEvalGpu:
                  batch_window=50,
                  action_rand=0.05,
                  use_cuda=True,
-                 goal_th=0.1,
+                 goal_th=0.2,
                  is_record=False):
         """
         :param actor_net: Actor Network
@@ -115,11 +115,11 @@ class RandEvalGpu:
         # Publisher
 
         # Publisher
-        self.pub_a1 = rospy.Publisher('/kuka_kr4r600/joint_a1_position_controller/command', Float64, queue_size=1)
-        self.pub_a2 = rospy.Publisher('/kuka_kr4r600/joint_a2_position_controller/command', Float64, queue_size=1)
-        self.pub_a3 = rospy.Publisher('/kuka_kr4r600/joint_a3_position_controller/command', Float64, queue_size=1)
-        self.pub_a4 = rospy.Publisher('/kuka_kr4r600/joint_a4_position_controller/command', Float64, queue_size=1)
-        self.pub_a5 = rospy.Publisher('/kuka_kr4r600/joint_a5_position_controller/command', Float64, queue_size=1)
+        self.pub_a1 = rospy.Publisher('/kuka_kr4r600/joint_a1_position_controller/command', Float64, queue_size=10)
+        self.pub_a2 = rospy.Publisher('/kuka_kr4r600/joint_a2_position_controller/command', Float64, queue_size=10)
+        self.pub_a3 = rospy.Publisher('/kuka_kr4r600/joint_a3_position_controller/command', Float64, queue_size=10)
+        self.pub_a4 = rospy.Publisher('/kuka_kr4r600/joint_a4_position_controller/command', Float64, queue_size=10)
+        self.pub_a5 = rospy.Publisher('/kuka_kr4r600/joint_a5_position_controller/command', Float64, queue_size=10)
         # Service
         self.set_model_target = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
         # Init Subscriber
@@ -134,13 +134,27 @@ class RandEvalGpu:
         while not self.robot_joint_state_init:
             continue
         rospy.loginfo("Finish Subscriber Init...")
+    
+    def reset_init(self, init_pos_list, run):
+
+        self.pub_a1.publish(Float64())
+        self.pub_a2.publish(Float64())
+        self.pub_a3.publish(Float64())
+        self.pub_a4.publish(Float64())
+        self.pub_a5.publish(Float64())
+        self.pub_a1.publish(init_pos_list[run][0])
+        self.pub_a2.publish(init_pos_list[run][1])
+        self.pub_a3.publish(init_pos_list[run][2])
+        self.pub_a4.publish(init_pos_list[run][3])
+        self.pub_a5.publish(init_pos_list[run][4])
+        rospy.sleep(2.0)
 
     def run_ros(self):
         """
         ROS ROS Node
         :return: run_data
         """
-        run_num = 1
+        run_num = len(self.robot_init_pose_list)
         run_data = {"final_state": np.zeros(run_num),
                     "time": np.zeros(run_num),
                     "path": []}
@@ -150,10 +164,11 @@ class RandEvalGpu:
         failure_case = 0
         robot_path = []
         # self._set_new_target(goal_ita)
+        self.reset_init(self.robot_init_pose_list,goal_ita)
         print("Test: ", goal_ita)
         print("Start Robot Pose: (%.3f, %.3f, %.3f, %.3f, %.3f) Goal: (%.3f, %.3f, %.3f)" %
-              (self.robot_init_pose_list[0], self.robot_init_pose_list[1],self.robot_init_pose_list[2],
-               self.robot_init_pose_list[3],self.robot_init_pose_list[4],
+              (self.robot_init_pose_list[goal_ita][0], self.robot_init_pose_list[goal_ita][1],self.robot_init_pose_list[goal_ita][2],
+               self.robot_init_pose_list[goal_ita][3],self.robot_init_pose_list[goal_ita][4],
                self.goal_pos_list[0], self.goal_pos_list[1], self.goal_pos_list[2]))
         goal_start_time = time.time()
         while not rospy.is_shutdown():
@@ -166,13 +181,13 @@ class RandEvalGpu:
             '''
             Set new test goal
             '''
-            if self.actual_dist < self.goal_th or self.have_collide == 1 or single_goal_run_ita == self.max_steps:
+            if self.actual_dist < self.goal_th or (self.scan_dist<0.1 and self.found_obj ==0) or single_goal_run_ita == self.max_steps:
                 goal_end_time = time.time()
                 run_data['time'][goal_ita] = goal_end_time - goal_start_time
                 if self.actual_dist < self.goal_th:
                     print("End: Success")
                     run_data['final_state'][goal_ita] = 1
-                elif self.have_collide:
+                elif self.scan_dist<0.1 and self.found_obj ==0:
                     failure_case += 1
                     print("End: Obstacle Collision")
                     run_data['final_state'][goal_ita] = 2
@@ -183,14 +198,16 @@ class RandEvalGpu:
                 print("Up to step failure number: ", failure_case)
                 run_data['path'].append(robot_path)
                 goal_ita += 1
+
                 if goal_ita == run_num:
                     break
                 single_goal_run_ita = 0
                 robot_path = []
+                self.reset_init(self.robot_init_pose_list,goal_ita)
                 print("Test: ", goal_ita)
                 print("Start Robot Pose: (%.3f, %.3f, %.3f, %.3f, %.3f ) Goal: (%.3f, %.3f, %.3f)" %
-                      (self.robot_init_pose_list[0], self.robot_init_pose_list[1],self.robot_init_pose_list[2],
-                       self.robot_init_pose_list[3],self.robot_init_pose_list[4],
+                      (self.robot_init_pose_list[goal_ita][0], self.robot_init_pose_list[goal_ita][1],self.robot_init_pose_list[goal_ita][2],
+                       self.robot_init_pose_list[goal_ita][3],self.robot_init_pose_list[goal_ita][4],
                        self.goal_pos_list[0], self.goal_pos_list[1],self.goal_pos_list[2]))
                 goal_start_time = time.time()
                 continue
