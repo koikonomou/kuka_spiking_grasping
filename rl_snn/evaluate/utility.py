@@ -6,11 +6,11 @@ import pickle
 import math
 import sys
 sys.path.append('../')
-# from training.train_ddpg.ddpg_networks import ActorNet
+from training.train_ddpg.ddpg_networks import ActorNet
 from training.snn_training.agent import AgentSpiking
 from training.snn_training.networks import ActorNetSpiking
-
-def load_test_actor_network(dir, state_num=22, action_num=2, dim=(256, 256, 256)):
+from ptflops import get_model_complexity_info
+def load_test_actor_network(dir, state_num=14, action_num=5, dim=(256, 256, 256)):
     """
     Load actor network for testing
     :param dir: directory of pt file
@@ -20,7 +20,13 @@ def load_test_actor_network(dir, state_num=22, action_num=2, dim=(256, 256, 256)
                          hidden1=dim[0],
                          hidden2=dim[1],
                          hidden3=dim[2])
-    actor_net.load_state_dict(torch.load(dir, map_location=lambda storage, loc: storage))
+    actor_net = torch.load(dir)
+    # with torch.cuda.device(0):
+    #     net = actor_net
+    #     macs, params = get_model_complexity_info(net, (256,14), as_strings=True,
+    #                                        print_per_layer_stat=True, verbose=True)
+    #     print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    #     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
     return actor_net
 
 
@@ -50,6 +56,11 @@ def load_test_actor_snn_network(weight_dir, bias_dir, device, batch_window=50,
     actor_net.fc2.bias = nn.Parameter(torch.from_numpy(bias[1]))
     actor_net.fc3.bias = nn.Parameter(torch.from_numpy(bias[2]))
     actor_net.fc4.bias = nn.Parameter(torch.from_numpy(bias[3]))
+    # with torch.cuda.device(0):
+    #     net = actor_net
+    #     macs, params = get_model_complexity_info(net,(14,256), as_strings=True, print_per_layer_stat=True, verbose=True)
+    #     print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    #     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
     return actor_net
 
 
