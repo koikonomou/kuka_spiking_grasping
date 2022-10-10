@@ -39,7 +39,7 @@ class RandEvalGpu:
                  batch_window=50,
                  action_rand=0.05,
                  use_cuda=True,
-                 goal_th=0.2,
+                 goal_th=0.15,
                  is_record=False):
         """
         :param actor_net: Actor Network
@@ -107,7 +107,7 @@ class RandEvalGpu:
         # Subscriber
         # rospy.Subscriber('gazebo/model_states', ModelStates, self._robot_state_cb)
         # rospy.Subscriber('simplescan', SimpleScan, self._robot_scan_cb)
-        # rospy.Subscriber('/gazebo/link_states', LinkStates, self._robot_link_cb )
+        rospy.Subscriber('/gazebo/link_states', LinkStates, self._robot_link_cb )
         rospy.Subscriber('/kuka/collision', Distance, self.scan_dist_cb)
         rospy.Subscriber('/kuka/box/distance', Distance, self.camera_cb )
         rospy.Subscriber('/collision_detection', Collision, self.collision_cb)
@@ -121,7 +121,7 @@ class RandEvalGpu:
         self.pub_a4 = rospy.Publisher('/kuka_kr4r600/joint_a4_position_controller/command', Float64, queue_size=10)
         self.pub_a5 = rospy.Publisher('/kuka_kr4r600/joint_a5_position_controller/command', Float64, queue_size=10)
         # Service
-        self.set_model_target = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
+        # self.set_model_target = rospy.ServiceProxy('gazebo/set_model_state', SetModelState)
         # Init Subscriber
         # while not self.robot_state_init:
         #     continue
@@ -158,6 +158,7 @@ class RandEvalGpu:
         run_data = {"final_state": np.zeros(run_num),
                     "time": np.zeros(run_num),
                     "path": []}
+        save_csv = []
         rate = rospy.Rate(self.ros_rate)
         goal_ita = 0
         single_goal_run_ita = 0
@@ -176,18 +177,19 @@ class RandEvalGpu:
             tmp_robot_spd = copy.deepcopy(self.robot_spd)
             tmp_robot_distance = copy.deepcopy(self.actual_dist)
             tmp_robot_distance = np.clip(tmp_robot_distance, 0, 1)
+            tmp_robot_gazebo_pose = copy.deepcopy(self.robot_gazebo_pose)
             # is_near_obs = self._near_obstacle(tmp_robot_pose)
-            robot_path.append(tmp_robot_pose)
+            robot_path.append(tmp_robot_gazebo_pose)
             '''
             Set new test goal
             '''
-            if self.actual_dist < self.goal_th or (self.scan_dist<0.1 and self.found_obj ==0) or single_goal_run_ita == self.max_steps:
+            if self.actual_dist < self.goal_th or (self.found_obj== 1 and self.scan_dist < 0.2) or single_goal_run_ita == self.max_steps:
                 goal_end_time = time.time()
                 run_data['time'][goal_ita] = goal_end_time - goal_start_time
                 if self.actual_dist < self.goal_th:
                     print("End: Success")
                     run_data['final_state'][goal_ita] = 1
-                elif self.scan_dist<0.1 and self.found_obj ==0:
+                elif self.have_collide == 1 :
                     failure_case += 1
                     print("End: Obstacle Collision")
                     run_data['final_state'][goal_ita] = 2
@@ -246,7 +248,7 @@ class RandEvalGpu:
         out_num = np.sum(run_data["final_state"] == 3)
         print("Success: ", suc_num, " Obstacle Collision: ", obs_num, " Over Steps: ", out_num)
         print("Success Rate: ", suc_num / run_num)
-        return run_data
+        return run_data 
 
     def _network_2_robot_action(self, state):
         """
@@ -270,7 +272,7 @@ class RandEvalGpu:
                 state = torch.Tensor(state).to(self.device)
                 action = self.actor_net(state).to('cpu')
             else:
-                state = np.array(state).reshape((1, -1))
+                state = torch.Tensor(state).to(self.device)
                 if self.is_record:
                     self.record_data.append(state)
                 state = torch.Tensor(state).to(self.device)
@@ -301,11 +303,9 @@ class RandEvalGpu:
         :return: state_spikes
         """
         spike_state_num = self.spike_state_num
-
         # spike_state_value = snn_state_2_spike_value_state(state, spike_state_num)
         spike_state_value = self.flatten_list(state)
         spike_state_value = np.array(spike_state_value)
-
         # spike_state_value = np.array(state)
         spike_state_value = spike_state_value.reshape((-1, spike_state_num, 1))
         state_spikes = np.random.rand(1, spike_state_num, self.batch_window) < spike_state_value
@@ -318,21 +318,22 @@ class RandEvalGpu:
         :param state: robot state
         :return: scale_state
         """
-        if self.is_poisson:
-            scale_state_num = self.spike_state_num
-            state = snn_state_2_spike_value_state(state, scale_state_num)
-            state = np.array(state).reshape((-1))
-            # state = np.array(state)
-            spike_state_value = state.reshape((-1, scale_state_num, 1))
-            state_spikes = np.random.rand(1, scale_state_num, self.batch_window) < spike_state_value
-            poisson_state = np.sum(state_spikes, axis=2).reshape((1, -1))
-            poisson_state = poisson_state / self.batch_window
-            scale_state = poisson_state.astype(float)
-        else:
-            scale_state_num = self.scan_half_num * 2 + 4
-            # scale_state = ddpg_state_rescale(state, scale_state_num)
-            scale_state = np.array(scale_state).reshape((1, scale_state_num))
-            scale_state = scale_state.astype(float)
+        # if self.is_poisson:
+        scale_state_num = self.spike_state_num
+        state = snn_state_2_spike_value_state(state, scale_state_num)
+        state = np.array(state).reshape((-1))
+        # state = self.flatten_list(state)
+        state = np.array(state)
+        spike_state_value = state.reshape((-1, scale_state_num, 1))
+        state_spikes = np.random.rand(1, scale_state_num, self.batch_window) < spike_state_value
+        poisson_state = np.sum(state_spikes, axis=2).reshape((1, -1))
+        poisson_state = poisson_state / self.batch_window
+        scale_state = poisson_state.astype(float)
+        # else:
+        #     scale_state_num = self.scan_half_num * 2 + 4
+        #     # scale_state = ddpg_state_rescale(state, scale_state_num)
+        #     scale_state = np.array(scale_state).reshape((1, scale_state_num))
+        #     scale_state = scale_state.astype(float)
         return scale_state
 
     # def _near_obstacle(self, pos):
@@ -441,3 +442,45 @@ class RandEvalGpu:
         if self.scan_dist_init is False:
             self.scan_dist_init = True
         self.scan_dist = msg.data
+
+
+    def _robot_link_cb(self,msg):
+
+        """
+        Callback function for robot link state
+        :param msg: message
+        """
+        if self.robot_state_init is False:
+            self.robot_state_init = True
+            # Pose[0] belongs to ground plane and pose[1] to table_link
+            # P_j robot state has position and orientation for each joint
+        pos_j1 = msg.pose[2].position.x, msg.pose[2].position.y, msg.pose[2].position.z
+        pos_j2 = msg.pose[3].position.x, msg.pose[3].position.y, msg.pose[3].position.z
+        pos_j3 = msg.pose[4].position.x, msg.pose[4].position.y, msg.pose[4].position.z
+        pos_j4 = msg.pose[5].position.x, msg.pose[5].position.y, msg.pose[5].position.z
+        pos_j5 = msg.pose[6].position.x, msg.pose[6].position.y, msg.pose[6].position.z
+        pos_j6 = msg.pose[7].position.x, msg.pose[7].position.y, msg.pose[7].position.z
+
+        quat_j1 = [msg.pose[2].orientation.x, msg.pose[2].orientation.y, msg.pose[2].orientation.z, msg.pose[2].orientation.w]
+        quat_j2 = [msg.pose[3].orientation.x, msg.pose[3].orientation.y, msg.pose[3].orientation.z, msg.pose[3].orientation.w]
+        quat_j3 = [msg.pose[4].orientation.x, msg.pose[4].orientation.y, msg.pose[4].orientation.z, msg.pose[4].orientation.w]
+        quat_j4 = [msg.pose[5].orientation.x, msg.pose[5].orientation.y, msg.pose[5].orientation.z, msg.pose[5].orientation.w]
+        quat_j5 = [msg.pose[6].orientation.x, msg.pose[6].orientation.y, msg.pose[6].orientation.z, msg.pose[6].orientation.w]
+        quat_j6 = [msg.pose[7].orientation.x, msg.pose[7].orientation.y, msg.pose[7].orientation.z]
+
+        # V_j has linear and angular velocities for each joint
+        linear_j1 = [msg.twist[2].linear.x, msg.twist[2].linear.y, msg.twist[2].linear.z]
+        linear_j2 = [msg.twist[3].linear.x, msg.twist[3].linear.y, msg.twist[3].linear.z]
+        linear_j3 = [msg.twist[4].linear.x, msg.twist[4].linear.y, msg.twist[4].linear.z]
+        linear_j4 = [msg.twist[5].linear.x, msg.twist[5].linear.y, msg.twist[5].linear.z]
+        linear_j5 = [msg.twist[6].linear.x, msg.twist[6].linear.y, msg.twist[6].linear.z]
+
+        angular_j1 = [msg.twist[2].angular.x, msg.twist[2].angular.y, msg.twist[2].angular.z]
+        angular_j2 = [msg.twist[3].angular.x, msg.twist[3].angular.y, msg.twist[3].angular.z]
+        angular_j3 = [msg.twist[4].angular.x, msg.twist[4].angular.y, msg.twist[4].angular.z]
+        angular_j4 = [msg.twist[5].angular.x, msg.twist[5].angular.y, msg.twist[5].angular.z]
+        angular_j5 = [msg.twist[6].angular.x, msg.twist[6].angular.y, msg.twist[6].angular.z]
+
+        self.robot_gazebo_pose = pos_j1+pos_j2+pos_j3+pos_j4+pos_j5+pos_j6
+        self.robot_gazebo_speed = linear_j1+angular_j1+linear_j2+angular_j2+linear_j3+angular_j3+linear_j4+angular_j4+linear_j5+angular_j5
+        self.end_effector = pos_j6

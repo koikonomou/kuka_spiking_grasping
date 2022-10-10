@@ -5,8 +5,12 @@ from datetime import datetime
 sys.path.append('../../')
 from eval_simulation import RandEvalGpu
 from utility import *
+import csv  
+import glob
+import pathlib
+import os
 
-def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='/home/katerina/save_snn_weights/',
+def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='/home/katerina/save_sddpg_subgoals/5_10/',
                    batch_window=5, is_save_result=True, use_cuda=True):
     """
     Evaluate Spiking DDPG in Simulated Environment
@@ -21,22 +25,42 @@ def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='
     rospy.init_node('sddpg_eval')
     # poly_list, raw_poly_list = gen_test_env_poly_list_env()
     start_goal_pos = [0.0, -1.35, 1.9, 0.0, 0.61]
-    robot_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.1, -1.35, 1.9, 0.0, 0.61], [0.0, -1.25, 1.9, 0.0, 0.61],[0.0, -1.30, 2.0, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0],[0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
+    robot_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.1, -1.35, 1.9, 0.0, 0.61],
+                        [0.0, -1.25, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0],
+                        [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
     goal_list = [0.5, 0.0, 0.85]
-    w_dir = save_dir + '2022_09_21-03_36_25_PM_snn_weights_s4.p'
-    b_dir = save_dir + '2022_09_21-03_36_25_PM_snn_bias_s4.p'
+    weights = []
+    bias = []
+    for i in range(10,260,10):
+        w_dir =  glob.glob(save_dir+'*_weights_s'+'{num}'.format(num=i)+'.p')
+        for f in w_dir:
+            weights.append(f)
+        b_dir = glob.glob(save_dir+'*_bias_s'+'{num}'.format(num=i)+'.p')
+        for f in b_dir:
+            bias.append(f)
+    episode = 0
+
     if use_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device("cpu")
-    actor_net = load_test_actor_snn_network(w_dir, b_dir, device, batch_window=batch_window)
-    eval = RandEvalGpu(actor_net, robot_init_list, goal_list,
-                       max_steps=100, action_rand=0.01,
-                       is_spike=True, use_cuda=use_cuda)
-    data = eval.run_ros()
+    for w in range(len(weights)):
+        episode +=1
+        for run_num in range(5):
+            actor_net = load_test_actor_snn_network(weights[w], bias[w], device, batch_window=batch_window)
+            eval = RandEvalGpu(actor_net, robot_init_list, goal_list,
+                               max_steps=100, action_rand=0.01,
+                               is_spike=True, use_cuda=use_cuda)
+            data = eval.run_ros()
+            save_at='../record_data/snn_with_subgoals/5_10_b' 
+            try:
+                os.mkdir(save_at)
+                print("Directory ", save_at, " Created")
+            except FileExistsError:
+                print("Directory", save_at, " already exists")
+            pickle.dump(data,open(save_at+'/'+ 'episode_'+'{ep_num}'.format(ep_num=episode) + '_run_'+'{run}'.format(run=run_num)+'.p', 'wb+'))
+            print("Save at: "+ save_at+'/'+'episode_'+'{ep_num}'.format(ep_num=episode) + '_run_'+'{run}'.format(run=run_num)+ " Eval on GPU Finished ...")
 
-    pickle.dump(data,open('../record_data/' +  datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + '.p', 'wb+'))
-    print( datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + " Eval on GPU Finished ...")
 
 
 if __name__ == '__main__':
