@@ -5,12 +5,12 @@ from datetime import datetime
 sys.path.append('../../')
 from eval_simulation import RandEvalGpu
 from utility import *
-import csv  
+import csv 
 import glob
 import pathlib
 import os
 
-def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='/home/katerina/save_sddpg_subgoals/5_10/',
+def evaluate_sddpg(model_name="hDDPG",save_dir='/home/katerina/save_sddpg_simple/5_10/',
                    batch_window=5, is_save_result=True, use_cuda=True):
     """
     Evaluate Spiking DDPG in Simulated Environment
@@ -24,14 +24,25 @@ def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='
     """
     rospy.init_node('sddpg_eval')
     # poly_list, raw_poly_list = gen_test_env_poly_list_env()
-    start_goal_pos = [0.0, -1.35, 1.9, 0.0, 0.61]
-    robot_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.1, -1.35, 1.9, 0.0, 0.61],
-                        [0.0, -1.25, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0],
-                        [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
+    # robot_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61]]
+    # robot_init_list = [[0.1, -1.35, 1.9, 0.0, 0.61],
+    #                     [0.0, -1.25, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0],
+    #                     [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
+    robot_init_list = [[0.3, -1.35, 1.9, 0.0, 0.61], [0.1, -1.35, 1.9, 0.0, 0.61],
+                        [0.0, -1.25, 1.9, 0.0, 0.61], [0.1, -1.35, 1.9, 0.10, 0.61],
+                        [0.0, -1.5, 1.5, 0.0, 0.2], [0.3, -1.5, 2.3, 0.20, 0.6],
+                        [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.7, 2.2, 0.0, 1.7],
+                        [0.0, -1.57, 0.6, 0.0, 2.09], [-0.10, -1.57, 1.6, -0.20, 2.09],
+                        [0.10, -1.57, 1.3, 0.10, 2.09],[-0.30, -2.0, 0.6, -0.20, 1.2],
+                        [0.0, -2.0, 1.5, 0.0, 1.55],[0.1, -1.25, 1.9, 0.10, 0.61],
+                        [0.10, -1.35, 1.5, 0.0, 1.55],[0.1, -1.25, 1.9, -0.20, 0.61],
+                        [0.0, -1.0, -0.50, 0.0, 1.55],[0.1, -1.8, 1.9, 0.10, 0.61],
+                        [0.0, -2.0, 1.5, 0.0, 1.55],[0.1, -1.25, 1.9, -0.10, 0.61]
+                        ]
     goal_list = [0.5, 0.0, 0.85]
     weights = []
     bias = []
-    for i in range(10,260,10):
+    for i in range(10,20,10):
         w_dir =  glob.glob(save_dir+'*_weights_s'+'{num}'.format(num=i)+'.p')
         for f in w_dir:
             weights.append(f)
@@ -39,20 +50,22 @@ def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='
         for f in b_dir:
             bias.append(f)
     episode = 0
-
+    # weight = save_dir+'2022_09_23-04_19_25_PM_snn_weights_s600.p'
+    # bias = save_dir+'2022_09_23-04_19_25_PM_snn_bias_s600.p'
+    # run_num = 0
     if use_cuda:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device("cpu")
+
     for w in range(len(weights)):
-        episode +=1
         for run_num in range(5):
             actor_net = load_test_actor_snn_network(weights[w], bias[w], device, batch_window=batch_window)
             eval = RandEvalGpu(actor_net, robot_init_list, goal_list,
                                max_steps=100, action_rand=0.01,
                                is_spike=True, use_cuda=use_cuda)
             data = eval.run_ros()
-            save_at='../record_data/snn_with_subgoals/5_10_b' 
+            save_at='../record_data/snn_simple_revision/actions/critical' 
             try:
                 os.mkdir(save_at)
                 print("Directory ", save_at, " Created")
@@ -60,6 +73,7 @@ def evaluate_sddpg(pos_start=0, pos_end=199, model_name='sddpg_bw_5', save_dir='
                 print("Directory", save_at, " already exists")
             pickle.dump(data,open(save_at+'/'+ 'episode_'+'{ep_num}'.format(ep_num=episode) + '_run_'+'{run}'.format(run=run_num)+'.p', 'wb+'))
             print("Save at: "+ save_at+'/'+'episode_'+'{ep_num}'.format(ep_num=episode) + '_run_'+'{run}'.format(run=run_num)+ " Eval on GPU Finished ...")
+        episode +=1
 
 
 
