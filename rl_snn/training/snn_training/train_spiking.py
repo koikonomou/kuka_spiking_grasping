@@ -14,12 +14,12 @@ from training.training_env import GazeboEnvironment
 def training(run_name="SNN_R1", episode_num=(200, 400),
                 iteration_num_start=(50, 50), iteration_num_step=(1,2),
                 iteration_num_max=(100,100),
-                j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
+                j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_episodes=10, save_steps=10000,
                 env_epsilon=(0.9, 0.6), env_epsilon_decay=(0.999, 0.9999),
                 obs_reward=-20, goal_reward= 30, goal_dis_amp=2,
-                state_num=14, action_num=5, spike_state_num=14, batch_window=6 , actor_lr=1e-4,
+                state_num=14, action_num=5, spike_state_num=14, batch_window=4 , actor_lr=1e-5,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
-                rand_step=2, target_tau=0.005, target_step=1, use_cuda=True, load_model= True, 
+                rand_step=2, target_tau=0.01, target_step=1, use_cuda=True, load_model= False, 
                 actor_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_actor_model_4.pt", critic_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_critic_model_4.pt"):
 
     """
@@ -61,9 +61,9 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
     :param use_cuda: if true use gpu
     """
     # Create Folder to save weights
-    dirName = 'save_snn_weights'
+    dirName = '/home/katerina/save_sddpg_subgoals/5_10'
     try:
-        os.mkdir('/home/katerina/' + dirName)
+        os.mkdir(dirName)
         print("Directory ", dirName, " Created ")
     except FileExistsError:
         print("Directory ", dirName, " already exists")
@@ -73,7 +73,7 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
     # ,[0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
 
     # Define Environment and Agent Object for training
-    rospy.init_node("training")
+    rospy.init_node("train_spiking")
 
     env = GazeboEnvironment(goal_reward=goal_reward,
                             col_reward=obs_reward, 
@@ -96,6 +96,7 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
     env_num = 0
     overall_episode = 0
     env_episode = 0
+    save_episode_counter = 0
     ita_per_episode = iteration_num_start[env_num]
 
     env.reset_environment(overall_init_list[env_num])
@@ -131,6 +132,7 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
             spike_state_value = spike_nstate_value
 
             # Train network with replay
+            episode_reward += reward
             if len(agent.memory) > batch_size:
                 actor_loss_value, critic_loss_value = agent.replay()
                 tb_writer.add_scalar('Spike-snn/actor_loss', actor_loss_value, overall_steps)
@@ -139,8 +141,8 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
 
             # Save Model
             if overall_steps % save_steps == 0:
-                max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("/home/katerina/save_snn_weights",
-                                                                          overall_steps // save_steps, run_name)
+                max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save(dirName+"/"+"save_model",
+                                                                          overall_steps // save_steps)
                 print("Max weights of SNN each layer: ", max_w)
                 print("Min weights of SNN each layer: ", min_w)
                 print("Shape of weights: ", shape_w)
@@ -148,9 +150,8 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
                 print("Min bias of SNN each layer: ", min_b)
                 print("Shape of bias: ", shape_b)
                 print("Saved at:/home/katerina/save_snn_weights", overall_steps // save_steps, run_name)
-            episode_reward += reward
             if done and reward == goal_reward and ita == 0:
-                print("GOAL RESET ")
+                print("GOAL RESET")
                 env.reset_goal()
             if done and reward == obs_reward and ita == 0:
                 env.reset_environment(overall_init_list[env_num])
@@ -164,9 +165,9 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
                 break
         if ita_per_episode < iteration_num_max[env_num]:
             ita_per_episode += iteration_num_step[env_num]
-        if overall_episode == 299:
-            max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save("/home/katerina/save_snn_weights",
-                                                                      0, run_name)
+        if overall_episode == 99:
+            max_w, min_w, max_b, min_b, shape_w, shape_b = agent.save(dirName+"/"+"save_model",
+                                                                      0)
             print("Max weights of SNN each layer: ", max_w)
             print("Min weights of SNN each layer: ", min_w)
             print("Shape of weights: ", shape_w)
@@ -174,11 +175,17 @@ def training(run_name="SNN_R1", episode_num=(200, 400),
             print("Min bias of SNN each layer: ", min_b)
             print("Shape of bias: ", shape_b)
         overall_episode += 1
+        save_episode_counter += 1
+        if save_episode_counter == 10:
+            agent.save(dirName, overall_episode)
+            print("Save weights for overall_episode: ", overall_episode )
+            save_episode_counter = 0
+
         env_episode += 1
         if env_episode == episode_num[env_num]:
             print(" Environment",env_num," Training Finished..")
             if env_num == 1:
-                save_m = agent.save_model("/home/katerina/snn_model", overall_steps // save_steps, datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p"))
+                save_m = agent.save_model(dirName, "final_model")
                 print("SNN model saved to : {}".format(save_m))
                 break
             env_num += 1
