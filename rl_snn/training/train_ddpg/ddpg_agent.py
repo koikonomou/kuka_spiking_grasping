@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import os
 import sys
+from datetime import datetime
 sys.path.append('../../')
 from training.train_ddpg.ddpg_networks import ActorNet, CriticNet
 
@@ -28,6 +29,8 @@ class Agent:
                  state_num,
                  action_num,
                  rescale_state_num,
+                 actor_path,
+                 critic_path,
                  actor_net_dim=(256, 256, 256),
                  critic_net_dim=(512, 512, 512),
                  memory_size=1000,
@@ -43,7 +46,9 @@ class Agent:
                  epsilon_rand_decay_start=60000,
                  epsilon_rand_decay_step=1,
                  poisson_window=50,
-                 use_cuda=True):
+                 use_cuda=True,
+                 load_model=False
+                ):
         """
 
         :param state_num: number of state
@@ -84,6 +89,9 @@ class Agent:
         self.epsilon_rand_decay_step = epsilon_rand_decay_step
         self.poisson_window = poisson_window
         self.use_cuda = use_cuda
+        self.load_model = load_model
+        self.actor_path = actor_path
+        self.critic_path = critic_path
         '''
         Random Action
         '''
@@ -106,7 +114,7 @@ class Agent:
                                   hidden1=actor_net_dim[0],
                                   hidden2=actor_net_dim[1],
                                   hidden3=actor_net_dim[2])
-        self.critic_net = CriticNet(self.rescale_state_num-1, self.action_num,
+        self.critic_net = CriticNet(self.state_num, self.action_num,
                                     hidden1=critic_net_dim[0],
                                     hidden2=critic_net_dim[1],
                                     hidden3=critic_net_dim[2])
@@ -114,12 +122,17 @@ class Agent:
                                          hidden1=actor_net_dim[0],
                                          hidden2=actor_net_dim[1],
                                          hidden3=actor_net_dim[2])
-        self.target_critic_net = CriticNet(self.rescale_state_num-1, self.action_num,
+        self.target_critic_net = CriticNet(self.state_num, self.action_num,
                                            hidden1=critic_net_dim[0],
                                            hidden2=critic_net_dim[1],
                                            hidden3=critic_net_dim[2])
-        self._hard_update(self.target_actor_net, self.actor_net)
-        self._hard_update(self.target_critic_net, self.critic_net)
+        if self.load_model:
+            print("Loaded pretrained model")
+            self.actor_net = torch.load(self.actor_path)
+            self.critic_net = torch.load(self.critic_path)
+        else:
+            self._hard_update(self.target_actor_net, self.actor_net)
+            self._hard_update(self.target_critic_net, self.critic_net)
         self.actor_net.to(self.device)
         self.critic_net.to(self.device)
         self.target_actor_net.to(self.device)
@@ -224,7 +237,7 @@ class Agent:
         self.epsilon = new_epsilon
         self.epsilon_decay = new_decay
 
-    def save(self, save_dir, episode, run_name):
+    def save(self, save_dir, episode):
         """
         Save Actor Net weights
         :param save_dir: directory for saving weights
@@ -237,8 +250,30 @@ class Agent:
         except FileExistsError:
             print("Directory", save_dir, " already exists")
         torch.save(self.actor_net.state_dict(),
-                   save_dir + '/' + run_name + '_actor_network_s' + str(episode) + '.pt')
+                   save_dir + '/' + datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + '_actor_nweights_s' + str(episode) + '.pt')
         print("Episode " + str(episode) + " weights saved ...")
+
+    def save_model(self, save_dir, episode):
+        try:
+            os.mkdir(save_dir)
+            print("Directory ", save_dir, " Created")
+        except FileExistsError:
+            print("Directory", save_dir, " already exists")
+        self.actor_net.to('cpu')
+        self.critic_net.to('cpu')
+        self.target_actor_net.to('cpu')
+        self.target_critic_net.to('cpu')
+
+        path1 = save_dir + '/' + '_ddpg_actor_model_' + str(episode) + '.pt'
+        torch.save(self.actor_net, path1)
+        path11 = save_dir + '/' + '_ddpg_actor_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_actor_net, path11)
+
+        path2 = save_dir + '/' + '_ddpg_critic_model_' + str(episode) + '.pt'
+        torch.save(self.critic_net, path2)
+        path22 = save_dir + '/' + '_ddpg_critic_target_model_' + str(episode) + '.pt'
+        torch.save(self.target_critic_net, path22)
+        return path1
 
     def load(self, load_file_name):
         """
@@ -263,29 +298,37 @@ class Agent:
         poisson_state = poisson_state.astype(float)
         return poisson_state
     
-    def flatten(self,xss):
-        return [x for xs in xss for x in xs]
-    
+    def flatten_list(self, _2d_list):
+        flat_list = []
+        # Iterate through the outer list
+        for element in _2d_list:
+            if type(element) is list:
+                # If the element is of type list, iterate through the sublist
+                for item in element:
+                    flat_list.append(item)
+            else:
+                flat_list.append(element)
+        return flat_list
+
     def _random_minibatch(self):
         """
         Random select mini-batch from memory
         :return: state_batch, action_batch, reward_batch, nstate_batch, done_batch
         """
         minibatch = random.sample(self.memory, self.batch_size)
-        state_batch = np.zeros((self.batch_size, self.rescale_state_num-1))
+        state_batch = np.zeros((self.batch_size, self.state_num))
         rescale_state_batch = np.zeros((self.batch_size, self.rescale_state_num))
         action_batch = np.zeros((self.batch_size, self.action_num))
         reward_batch = np.zeros((self.batch_size, 1))
-        nstate_batch = np.zeros((self.batch_size, self.rescale_state_num-1))
+        nstate_batch = np.zeros((self.batch_size, self.state_num))
         rescale_nstate_batch = np.zeros((self.batch_size, self.rescale_state_num))
         done_batch = np.zeros((self.batch_size, 1))
         for num in range(self.batch_size):
-            state_batch[num, :] = self.flatten(minibatch[num][0])
+            state_batch[num, :] = self.flatten_list(minibatch[num][0])
             rescale_state_batch[num, :] = np.array(minibatch[num][1])
             action_batch[num, :] = np.array(minibatch[num][2])
             reward_batch[num, 0] = minibatch[num][3]
-            minibatch5 = self.flatten(minibatch[num][4])
-
+            minibatch5 = self.flatten_list(minibatch[num][4])
             nstate_batch[num, :] = np.array(minibatch5)
             rescale_nstate_batch[num, :] = np.array(minibatch[num][5])
             done_batch[num, 0] = minibatch[num][6]
