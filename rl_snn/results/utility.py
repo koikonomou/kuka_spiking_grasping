@@ -3,6 +3,52 @@ import math
 import matplotlib.pyplot as plt
 import matplotlib
 
+def create_graph(data):
+
+    plt.style.use('_mpl-gallery')
+
+    # make data
+    np.random.seed(1)
+    data_values=[]
+    run_num = len(data["final_state"])
+
+    data_values[0:5]
+    data_episodes=[]
+    suc_rate = []
+    median = []
+    upper_value = []
+    lower_value = []
+    r=0
+    for i in range(run_num):
+        if data["final_state"][r] == 1:
+            r+=r
+        suc_r = r/6
+        suc_rate.append(suc_r)
+        # First quartile (Q1)
+        Q1 = np.percentile(suc_rate, 25, interpolation = 'midpoint')
+        upper_value.append(Q1)
+        # Third quartile (Q3)
+        Q3 = np.percentile(suc_rate, 75, interpolation = 'midpoint')
+        lower_value.append(Q3)
+        # Calculate median value
+        m = Q3-Q1
+        median.append(m)
+
+    x = np.linspace(0, 10, 600)
+    y1 = upper_value
+    y2 = lower_value
+
+    # plot
+    fig, ax = plt.subplots()
+
+    ax.fill_between(x, y1, y2, alpha=.5, linewidth=0)
+    ax.plot(x, median, linewidth=2)
+
+    ax.set(xlim=(0, 8), xticks=np.arange(1, 600),
+           ylim=(0, 8), yticks=np.arange(1, 600))
+
+    plt.show()
+
 def plot_results(data):
     plt.rcdefaults()
     fig, ax = plt.subplots()
