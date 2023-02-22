@@ -17,22 +17,22 @@ SPIKE_PSEUDO_GRAD_WINDOW = 0.5
 
 
 
-class PseudoSpikeRect(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        return input.gt(NEURON_VTH).float()
-    @staticmethod
-    def backward(ctx, grad_output):
-        input, = ctx.saved_tensors
-        grad_input = grad_output.clone()
-        spike_pseudo_grad = (abs(input - NEURON_VTH) < SPIKE_PSEUDO_GRAD_WINDOW)
-        # print('rect', grad_input * spike_pseudo_grad.float() )
-        return grad_input * spike_pseudo_grad.float()
+# class PseudoSpikeRect(torch.autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input):
+#         ctx.save_for_backward(input)
+#         return input.gt(NEURON_VTH).float()
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         input, = ctx.saved_tensors
+#         grad_input = grad_output.clone()
+#         spike_pseudo_grad = (abs(input - NEURON_VTH) < SPIKE_PSEUDO_GRAD_WINDOW)
+#         # print('rect', grad_input * spike_pseudo_grad.float() )
+#         return grad_input * spike_pseudo_grad.float()
 
 
 # Initialize surrogate gradient
-# spike_grad1 = surrogate.fast_sigmoid()  # passes default parameters from a closure
+spike_grad1 = surrogate.fast_sigmoid()  # passes default parameters from a closure
 # spike_grad2 = surrogate.FastSigmoid.apply  # passes default parameters, equivalent to above
 # spike_grad3 = surrogate.fast_sigmoid(slope=50)  # custom parameters from a closure
 
@@ -49,7 +49,7 @@ class ActorNetSpiking(nn.Module):
         self.hidden1 = hidden1
         self.hidden2 = hidden2
         self.hidden3 = hidden3
-        self.spike_grad1 = PseudoSpikeRect.apply
+        self.spike_grad1 = spike_grad1
      # Initialize layers, specify the ``spike_grad`` argument
         self.fc1 = nn.Linear(self.state_num, self.hidden1)
         self.lif1 = snn.Synaptic(alpha=alpha, beta=beta, spike_grad=self.spike_grad1)
