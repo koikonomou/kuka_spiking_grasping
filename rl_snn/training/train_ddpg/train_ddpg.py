@@ -5,23 +5,27 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 import sys
 import pickle
+from datetime import datetime
 
 sys.path.append('../../')
 from training.train_ddpg.ddpg_agent import Agent
-from training.training_env import GazeboEnvironment
+from training.training_env_s import GazeboEnvironment
 from training.utility import *
 
 
-def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
-                iteration_num_start=(400, 500, 600, 700), iteration_num_step=(1,2,3,4),
-                iteration_num_max=(1000,1000,1000,1000),
+def train_ddpg(run_name="SNN_R1",episode_num=(200, 400),
+                iteration_num_start=(50,50), iteration_num_step=(1,2),
+                iteration_num_max=(100,100),
                 j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09, save_steps=10000,
-                env_epsilon=(0.9, 0.6, 0.6, 0.6), env_epsilon_decay=(0.999, 0.9999, 0.9999, 0.9999),
-                goal_dis_min=0.1,
-                obs_reward=-20, goal_reward=20, goal_dis_amp=5, goal_th=0.5, obs_th=0.35,
+                env_epsilon=(0.9, 0.6), env_epsilon_decay=(0.999, 0.9999),
+                goal_dis_min=0.1,rescale_state_num = 14,
+                obs_reward=-20, goal_reward= 30, goal_dis_amp=2, goal_th=0.5, obs_th=0.35,
                 state_num=14, action_num=5, poisson_win=50, spike_state_num=15, batch_window=4, actor_lr=1e-5,
                 memory_size=100000, batch_size=256, epsilon_end=0.1, rand_start=10000, rand_decay=0.999,
-                rand_step=2, target_tau=0.01, target_step=1, use_cuda=True):
+                rand_step=2, target_tau=0.01, target_step=1, use_cuda=True,
+                load_model= False, 
+                actor_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_actor_model_4.pt",
+                critic_path = "/home/katerina/snn_model/2022_09_21-01_59_38_PM_snn_critic_model_4.pt"):
     """
     Training DDPG for Mapless Navigation
 
@@ -61,30 +65,32 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
     :param use_cuda: if true use gpu
     """
     # Create Folder to save weights
-    dirName = 'save_ddpg_weights'
+    dirName = '/home/katerina/save_ddpg_weights_simple/10_10'
     try:
-        os.mkdir('../' + dirName)
+        os.mkdir( dirName)
         print("Directory ", dirName, " Created ")
     except FileExistsError:
         print("Directory ", dirName, " already exists")
 
     # Define 4 training environments
     # Read Random Start Pose and Goal Position based on experiment name
-    overall_init_list = [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0], [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
+    overall_init_list =  [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0]]
+    # [[0.0, -1.35, 1.9, 0.0, 0.61],[0.0, -2.5, 2.3, 0.0, 1.0], [0.0, -2.0, 1.5, 0.0, 1.55], [0.0, -1.57, 0.6, 0.0, 2.09]]
 
     # Define Environment and Agent Object for training
     rospy.init_node("train_ddpg")
-    env = GazeboEnvironment(goal_dis_min=goal_dis_min,
-                            col_reward=obs_reward, goal_reward=goal_reward, goal_dis_amp=goal_dis_amp,
-                            goal_near_th=goal_th, obs_near_th=obs_th)
+    env = GazeboEnvironment(goal_reward=goal_reward,
+                            col_reward=obs_reward, 
+                            goal_dis_amp=goal_dis_amp)
     # if is_pos_neg:
     #     rescale_state_num = state_num + 2
     # else:
-    rescale_state_num = 68
+
     agent = Agent(state_num, action_num, rescale_state_num, poisson_window=poisson_win,
                   memory_size=memory_size, batch_size=batch_size, epsilon_end=epsilon_end,
                   epsilon_rand_decay_start=rand_start, epsilon_decay=rand_decay, epsilon_rand_decay_step=rand_step,
-                  target_tau=target_tau, target_update_steps=target_step, use_cuda=use_cuda)
+                  target_tau=target_tau, target_update_steps=target_step, use_cuda=use_cuda,
+                  actor_path=actor_path, critic_path=critic_path, load_model=load_model)
 
     # Define Tensorboard Writer
     tb_writer = SummaryWriter()
@@ -92,7 +98,7 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
     # Define maximum steps per episode and reset maximum random action
     overall_steps = 0
     env_num = 0
-
+    save_episode_counter = 0
     overall_episode = 0
     env_episode = 0
     ita_per_episode = iteration_num_start[env_num]
@@ -106,9 +112,11 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
     # Start Training
     start_time = time.time()
     while True:
-        state = env.reset(overall_init_list[env_num])
+        state = env.reset()
         # if is_pos_neg:
-        rescale_state = ddpg_state_2_spike_value_state(state, rescale_state_num)
+        rescale_state = snn_state_2_spike_value_state(state, rescale_state_num)
+        rescale_state = np.array(rescale_state).reshape((-1))
+
         # else:
             # rescale_state = ddpg_state_rescale(state, rescale_state_num)
         episode_reward = 0
@@ -120,7 +128,9 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
                 raw_action, j1_max, j1_min, j2_max, j2_min, j3_max, j3_min, j4_max, j4_min, j5_max, j5_min)
             next_state, reward, done = env.step(decode_action)
             # if is_pos_neg:
-            rescale_next_state = ddpg_state_2_spike_value_state(next_state, rescale_state_num)
+            rescale_next_state = snn_state_2_spike_value_state(next_state, rescale_state_num)
+            rescale_next_state = np.array(rescale_next_state).reshape((-1))
+            
             # else:
 
                 # rescale_next_state = ddpg_state_rescale(state, rescale_state_num)
@@ -138,10 +148,15 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
                 tb_writer.add_scalar('DDPG/critic_loss', critic_loss_value, overall_steps)
             ita_time_end = time.time()
 
-            # Save Model
-            if overall_steps % save_steps == 0:
-                agent.save("../save_ddpg_weights", overall_steps // save_steps, run_name)
-
+            # # Save Model
+            # if overall_steps % save_steps == 0:
+            #     agent.save(dirName, overall_steps // save_steps)
+            # if done and reward == goal_reward and ita == 0:
+            #     print("GOAL RESET")
+            #     env.reset_goal()
+            # if done and reward == obs_reward and ita == 0:
+            #     env.reset_environment(overall_init_list[env_num])
+            #     print("COLLISION RESET")
             # If Done then break
             if done or ita == ita_per_episode - 1:
                 print("Episode: {}/{}, Avg Reward: {}, Steps: {}"
@@ -150,15 +165,20 @@ def train_ddpg(run_name="SNN_R1",episode_num=(300, 400, 500, 600),
                 break
         if ita_per_episode < iteration_num_max[env_num]:
             ita_per_episode += iteration_num_step[env_num]
-        if overall_episode == 999:
-            agent.save("../save_ddpg_weights", 0, run_name)
+        if overall_episode == 99:
+            agent.save(dirName, 0)
         overall_episode += 1
+        save_episode_counter += 1
+        if save_episode_counter == 10:
+            agent.save(dirName+'/'+'save_10_ep',env_num+overall_episode)
+            print("Save weights for overall_episode: ", env_num+overall_episode )
+            save_episode_counter = 0
         env_episode += 1
         if env_episode == episode_num[env_num]:
             print(" Environment",env_num," Training Finished..")
-            if env_num == 3:
-            # save_m = agent.save_model("../save_snn_weights",overall_steps // save_steps, run_name)
-            # print("SNN model saved to : {}".format(save_m))
+            if env_num == 1:
+                save_m = agent.save_model(dirName, 'final_model')
+                print("DDPG model saved to : {}".format(save_m))
                 break
             env_num += 1
             env.reset_environment(overall_init_list[env_num])
