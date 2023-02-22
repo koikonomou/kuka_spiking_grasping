@@ -10,7 +10,7 @@ MODEL_NAME = 'sddpg_bw_5'
 # MODEL_NAME = 'ddpg_poisson'
 FILE_NAME = MODEL_NAME + '_0_199.p'
 
-run_data = pickle.load(open('../record_data/2022_09_21-07_16_42_PM.p', 'rb'))
+run_data = pickle.load(open('../record_data/ddpg_with_subgoal/episode_1_run_4.p', 'rb'))
 plot_results(run_data)
 s_list, p_dis, p_time, p_spd = analyze_run(run_data)
 print(MODEL_NAME + " random simulation results:")
