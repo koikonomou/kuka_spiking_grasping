@@ -270,9 +270,9 @@ class GazeboEnvironment:
             reward = self.goal_reward
             done = True
         else:
-            # reward = self.goal_dis_amp * (self.goal_dis_pre - self.self.goal_dis_cur)
-            reward = ((self.goal_dis_pre-self.goal_dis_cur)*(self.goal_dis_amp + (found_obj * self.goal_dis_amp)))/self.goal_dis_cur
-            # reward = (-self.goal_dis_cur*math.pow(math.e,(- math.pow((self.goal_dis_pre-self.goal_dis_cur),2)))-self.goal_dis_cur)
+            # reward = (self.goal_dis_amp * math.pow((self.goal_dis_pre - self.self.goal_dis_cur),2)* math.pow(math.e,self.scan_dist_cur))-self.goal_dis_cur
+            # reward = ((self.goal_dis_pre-self.goal_dis_cur)*(self.goal_dis_amp + (self.found_obj * self.goal_dis_amp)))/self.goal_dis_cur
+            reward = (-self.goal_dis_cur*math.pow(math.e,(- math.pow((self.goal_dis_pre-self.goal_dis_cur),2)))-self.goal_dis_cur)
 
         return reward, done
 
