@@ -243,7 +243,7 @@ class AgentSpiking:
         self.epsilon = new_epsilon
         self.epsilon_decay = new_decay
 
-    def save(self, save_dir, episode, run_name):
+    def save(self, save_dir, episode):
         """
         Save SNN Actor Net weights
         :param save_dir: directory for saving weights
@@ -301,7 +301,7 @@ class AgentSpiking:
         self.actor_net.to(self.device)
         return max_w, min_w, max_bias, min_bias, shape_w, shape_bias
 
-    def save_model(self, save_dir, episode, run_name):
+    def save_model(self, save_dir, episode):
         try:
             os.mkdir(save_dir)
             print("Directory ", save_dir, " Created")
@@ -312,19 +312,19 @@ class AgentSpiking:
         self.target_actor_net.to('cpu')
         self.target_critic_net.to('cpu')
 
-        path1 = save_dir + '/' + run_name + '_snn_actor_model_' + str(episode) + '.pt'
+        path1 = save_dir + '/'  + '_snn_actor_model_' + str(episode) + '.pt'
         torch.save(self.actor_net, path1)
-        path11 = save_dir + '/' + run_name + '_snn_actor_target_model_' + str(episode) + '.pt'
+        path11 = save_dir + '/'  + '_snn_actor_target_model_' + str(episode) + '.pt'
         torch.save(self.target_actor_net, path11)
 
-        path2 = save_dir + '/' + run_name + '_snn_critic_model_' + str(episode) + '.pt'
+        path2 = save_dir + '/'  + '_snn_critic_model_' + str(episode) + '.pt'
         torch.save(self.critic_net, path2)
-        path22 = save_dir + '/' + run_name + '_snn_critic_target_model_' + str(episode) + '.pt'
+        path22 = save_dir + '/' + '_snn_critic_target_model_' + str(episode) + '.pt'
         torch.save(self.target_critic_net, path22)
         return path1
 
 
-    def _state_2_state_spikes(self, spike_state_value,batch_size):
+    def _state_2_state_spikes(self, spike_state_value, batch_size):
         """
         Transform state to spikes of input neurons
         :param spike_state_value: state from environment transfer to firing rates of neurons

@@ -79,7 +79,7 @@ class ActorNetSpiking(nn.Module):
         spike = self.pseudo_spike(volt)
         return current, volt, spike
 
-    def forward(self, x, batch_size):
+    def forward(self, x, batch_size=50):
         """
 
         :param x: state batch
