@@ -2,8 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import os
+import matplotlib as mpl
+from colorspacious import cspace_converter
 
 def plot_joints(data,env_num):
+    
     px = []
     py =[]
     pz = []
@@ -23,7 +26,7 @@ def plot_joints(data,env_num):
         status.append('Success')
         time.append(data["time"][env_num])
     if final_state == 2:
-        status.append("Failure")
+        status.append("Collision")
         time.append(data["time"][env_num])
     if final_state == 3:
         status.append("Time out")
@@ -51,8 +54,8 @@ def plot_joints(data,env_num):
     return a,b,c,pz,time,status
 
 
-directory = '../record_data/ddpg_simple/10_10_c'
-ep_number=1
+directory = '/home/katerina/Downloads'
+ep_number=0
 run_num = 0
 file = 'episode_'+'{ep_num}'.format(ep_num=ep_number) + '_run_'+'{run}'.format(run=run_num)+'.p'
 data = pickle.load(open(directory+'/'+file, 'rb'))
@@ -64,10 +67,10 @@ ax.set_ylabel("y axis ")
 ax.set_zlabel("z axis")
 for i in range(len(d)):
     ax.set_title('DDPG env 1 \nexec time:%s \nstatus: %s'% (time ,status), fontsize=7)
-    ax.scatter(a[i],b[i],zs = c[i], s=80)
+    ax.scatter(a[i],b[i],zs = c[i], s=80, cmap='binary' )
 
 for i in range(len(d)):
-    ax.plot3D(a[i],b[i],d[i])
+    ax.plot3D(a[i],b[i],d[i] )
 
 
 a,b,c,d,time,status = plot_joints(data=data,env_num=1)
@@ -121,9 +124,9 @@ for i in range(len(d)):
 # SNN
 
 
-directory = '../record_data/snn_without_subgoal/5_10_b'
+directory = "../record_data/ddpg_simple/21_11_b"
 ep_number=1
-run_num = 0
+run_num = 4
 file = 'episode_'+'{ep_num}'.format(ep_num=ep_number) + '_run_'+'{run}'.format(run=run_num)+'.p'
 data = pickle.load(open(directory+'/'+file, 'rb'))
 a,b,c,d,time,status = plot_joints(data=data,env_num=0)
