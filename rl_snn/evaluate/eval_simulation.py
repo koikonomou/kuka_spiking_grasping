@@ -31,7 +31,7 @@ class RandEvalGpu:
                  robot_init_pose_list,
                  goal_pos_list,
                  ros_rate=10,
-                 max_steps=2000,
+                 max_steps=1000,
                  j1_max=2.97, j1_min=-2.97, j2_max=0.50, j2_min=-3.40, j3_max=2.62, j3_min=-2.01, j4_max=3.23, j4_min=-3.23, j5_max=2.09, j5_min=-2.09,
                  is_spike=False,
                  is_scale=False,
@@ -39,7 +39,7 @@ class RandEvalGpu:
                  batch_window=50,
                  action_rand=0.05,
                  use_cuda=True,
-                 goal_th=0.15,
+                 goal_th=0.17,
                  is_record=False):
         """
         :param actor_net: Actor Network
@@ -136,6 +136,7 @@ class RandEvalGpu:
         rospy.loginfo("Finish Subscriber Init...")
     
     def reset_init(self, init_pos_list, run):
+        rospy.sleep(2.5)
 
         self.pub_a1.publish(Float64())
         self.pub_a2.publish(Float64())
@@ -157,8 +158,8 @@ class RandEvalGpu:
         run_num = len(self.robot_init_pose_list)
         run_data = {"final_state": np.zeros(run_num),
                     "time": np.zeros(run_num),
-                    "path": []}
-        save_csv = []
+                    "path": [],
+                    "actions": []}
         rate = rospy.Rate(self.ros_rate)
         goal_ita = 0
         single_goal_run_ita = 0
@@ -174,22 +175,23 @@ class RandEvalGpu:
         goal_start_time = time.time()
         while not rospy.is_shutdown():
             tmp_robot_pose = copy.deepcopy(self.robot_pose)
+            tmp_end_effector_height = copy.deepcopy(self.end_effector_height)
             tmp_robot_spd = copy.deepcopy(self.robot_spd)
             tmp_robot_distance = copy.deepcopy(self.actual_dist)
             tmp_robot_distance = np.clip(tmp_robot_distance, 0, 1)
             tmp_robot_gazebo_pose = copy.deepcopy(self.robot_gazebo_pose)
-            # is_near_obs = self._near_obstacle(tmp_robot_pose)
+            is_near_obs = copy.deepcopy(self.have_collide)
             robot_path.append(tmp_robot_gazebo_pose)
             '''
             Set new test goal
             '''
-            if self.actual_dist < self.goal_th or (self.found_obj== 1 and self.scan_dist < 0.2) or single_goal_run_ita == self.max_steps:
+            if self.actual_dist < self.goal_th or self.near_obstacle or tmp_end_effector_height < 0.90 or single_goal_run_ita == self.max_steps:
                 goal_end_time = time.time()
                 run_data['time'][goal_ita] = goal_end_time - goal_start_time
                 if self.actual_dist < self.goal_th:
                     print("End: Success")
                     run_data['final_state'][goal_ita] = 1
-                elif self.have_collide == 1 :
+                elif self.near_obstacle or tmp_end_effector_height < 0.90:
                     failure_case += 1
                     print("End: Obstacle Collision")
                     run_data['final_state'][goal_ita] = 2
@@ -205,7 +207,7 @@ class RandEvalGpu:
                     break
                 single_goal_run_ita = 0
                 robot_path = []
-                self.reset_init(self.robot_init_pose_list,goal_ita)
+                self.reset_init(self.robot_init_pose_list, goal_ita)
                 print("Test: ", goal_ita)
                 print("Start Robot Pose: (%.3f, %.3f, %.3f, %.3f, %.3f ) Goal: (%.3f, %.3f, %.3f)" %
                       (self.robot_init_pose_list[goal_ita][0], self.robot_init_pose_list[goal_ita][1],self.robot_init_pose_list[goal_ita][2],
@@ -225,7 +227,9 @@ class RandEvalGpu:
             #         tmp_goal_dis = 1
             ddpg_state = [tmp_robot_distance, tmp_robot_pose, tmp_robot_spd, self.found_obj]
             # ddpg_state.extend(tmp_robot_scan.tolist())
+            actions_ar = []
             action = self._network_2_robot_action(ddpg_state)
+            run_data['actions'].append(action)
             move_joint_a1 = Float64()
             move_joint_a2 = Float64()
             move_joint_a3 = Float64()
@@ -246,6 +250,7 @@ class RandEvalGpu:
         suc_num = np.sum(run_data["final_state"] == 1)
         obs_num = np.sum(run_data["final_state"] == 2)
         out_num = np.sum(run_data["final_state"] == 3)
+        run_data['actions'] == actions_ar
         print("Success: ", suc_num, " Obstacle Collision: ", obs_num, " Over Steps: ", out_num)
         print("Success Rate: ", suc_num / run_num)
         return run_data 
@@ -430,7 +435,10 @@ class RandEvalGpu:
     def collision_cb(self,msg):
         if self.collision_init is False:
             self.collision_init = True
+        self.near_obstacle = False
         self.have_collide = msg.have_collide
+        if self.have_collide ==1:
+            self.near_obstacle = True
         self.actual_dist = msg.goal_dist
     def camera_cb(self,msg):
         if self.camera_cb_init is False:
@@ -484,3 +492,4 @@ class RandEvalGpu:
         self.robot_gazebo_pose = pos_j1+pos_j2+pos_j3+pos_j4+pos_j5+pos_j6
         self.robot_gazebo_speed = linear_j1+angular_j1+linear_j2+angular_j2+linear_j3+angular_j3+linear_j4+angular_j4+linear_j5+angular_j5
         self.end_effector = pos_j6
+        self.end_effector_height = msg.pose[7].position.z
